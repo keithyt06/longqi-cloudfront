@@ -1,0 +1,2197 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CloudFront 全功能演示平台 — 架构设计</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    /* ===========================================
+       CSS CUSTOM PROPERTIES — AWS Architect Theme
+       =========================================== */
+    :root {
+      --bg-primary: #0f1923;
+      --bg-secondary: #1a2332;
+      --bg-card: #1e2a3a;
+      --bg-card-hover: #243044;
+      --bg-code: #0d1520;
+      --border: #2d3a4a;
+      --border-light: #3d4a5a;
+
+      --text-primary: #e6edf3;
+      --text-secondary: #8b949e;
+      --text-muted: #636c76;
+
+      --aws-orange: #FF9900;
+      --aws-orange-dim: rgba(255, 153, 0, 0.15);
+      --aws-blue: #527FFF;
+      --aws-blue-dim: rgba(82, 127, 255, 0.12);
+
+      --pass: #2ea043;
+      --pass-dim: rgba(46, 160, 67, 0.15);
+      --fail: #f85149;
+      --fail-dim: rgba(248, 81, 73, 0.15);
+      --warn: #d29922;
+
+      /* Service Colors */
+      --cf-blue: #527FFF;
+      --cf-blue-dim: rgba(82, 127, 255, 0.12);
+      --cf-blue-border: rgba(82, 127, 255, 0.35);
+      --s3-green: #2ea043;
+      --s3-green-dim: rgba(46, 160, 67, 0.12);
+      --s3-green-border: rgba(46, 160, 67, 0.35);
+      --ec2-orange: #FF9900;
+      --ec2-orange-dim: rgba(255, 153, 0, 0.12);
+      --ec2-orange-border: rgba(255, 153, 0, 0.35);
+      --waf-red: #f85149;
+      --waf-red-dim: rgba(248, 81, 73, 0.12);
+      --waf-red-border: rgba(248, 81, 73, 0.35);
+      --dynamo-purple: #8b5cf6;
+      --dynamo-purple-dim: rgba(139, 92, 246, 0.12);
+      --dynamo-purple-border: rgba(139, 92, 246, 0.35);
+      --cognito-teal: #06b6d4;
+      --cognito-teal-dim: rgba(6, 182, 212, 0.12);
+      --cognito-teal-border: rgba(6, 182, 212, 0.35);
+      --aurora-cyan: #22d3ee;
+      --aurora-cyan-dim: rgba(34, 211, 238, 0.12);
+      --aurora-cyan-border: rgba(34, 211, 238, 0.35);
+      --lambda-purple: #a855f7;
+      --lambda-purple-dim: rgba(168, 85, 247, 0.12);
+      --lambda-purple-border: rgba(168, 85, 247, 0.35);
+      --alb-amber: #f59e0b;
+      --alb-amber-dim: rgba(245, 158, 11, 0.12);
+      --alb-amber-border: rgba(245, 158, 11, 0.35);
+      --route53-yellow: #eab308;
+
+      --font-display: 'Plus Jakarta Sans', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+
+      --title-size: clamp(1.8rem, 4vw, 3rem);
+      --heading-size: clamp(1.1rem, 2.2vw, 1.5rem);
+      --subheading-size: clamp(0.95rem, 1.6vw, 1.15rem);
+      --body-size: clamp(0.8rem, 1.2vw, 0.95rem);
+      --small-size: clamp(0.7rem, 1vw, 0.8rem);
+      --mono-size: clamp(0.7rem, 1vw, 0.82rem);
+
+      --radius: 8px;
+      --radius-lg: 12px;
+      --radius-xl: 16px;
+      --ease: cubic-bezier(0.16, 1, 0.3, 1);
+      --duration: 0.4s;
+
+      --content-max: 1100px;
+      --spacing: clamp(1rem, 2vw, 1.5rem);
+    }
+
+    /* ===========================================
+       RESET & BASE
+       =========================================== */
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html {
+      scroll-behavior: smooth;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    body {
+      font-family: var(--font-display);
+      font-size: var(--body-size);
+      color: var(--text-primary);
+      background: var(--bg-primary);
+      line-height: 1.7;
+      min-height: 100vh;
+    }
+
+    ::selection {
+      background: var(--aws-orange);
+      color: var(--bg-primary);
+    }
+
+    a { color: var(--aws-blue); text-decoration: none; transition: color 0.15s; }
+    a:hover { color: var(--aws-orange); }
+    code {
+      font-family: var(--font-mono);
+      font-size: 0.9em;
+      color: var(--aws-blue);
+      background: var(--aws-blue-dim);
+      padding: 1px 6px;
+      border-radius: 4px;
+    }
+
+    /* ===========================================
+       STICKY NAV (Table of Contents)
+       =========================================== */
+    .toc-nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      background: rgba(15, 25, 35, 0.92);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      transform: translateY(-100%);
+      transition: transform 0.3s var(--ease);
+    }
+
+    .toc-nav.visible { transform: translateY(0); }
+
+    .toc-inner {
+      max-width: var(--content-max);
+      margin: 0 auto;
+      padding: 0 var(--spacing);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      overflow-x: auto;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+
+    .toc-inner::-webkit-scrollbar { display: none; }
+
+    .toc-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 10px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      white-space: nowrap;
+      transition: color 0.15s;
+      border-bottom: 2px solid transparent;
+      text-decoration: none;
+    }
+
+    .toc-link:hover { color: var(--text-primary); }
+    .toc-link.active {
+      color: var(--aws-orange);
+      border-bottom-color: var(--aws-orange);
+    }
+
+    .toc-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      background: var(--aws-orange-dim);
+      color: var(--aws-orange);
+      font-size: 10px;
+      font-weight: 700;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+    }
+
+    /* ===========================================
+       SECTION DIVIDER
+       =========================================== */
+    .section-divider {
+      max-width: var(--content-max);
+      margin: 0 auto;
+      padding: 0 var(--spacing);
+    }
+
+    .section-divider-line {
+      height: 1px;
+      background: linear-gradient(90deg,
+        transparent 0%,
+        var(--border) 15%,
+        var(--aws-orange) 50%,
+        var(--border) 85%,
+        transparent 100%);
+      opacity: 0.5;
+    }
+
+    /* ===========================================
+       HERO SECTION
+       =========================================== */
+    .hero {
+      max-width: var(--content-max);
+      margin: 0 auto;
+      padding: clamp(3rem, 8vw, 6rem) var(--spacing) clamp(2rem, 4vw, 3rem);
+      text-align: center;
+      opacity: 0;
+      transform: translateY(20px);
+      animation: fadeUp 0.6s var(--ease) 0.1s forwards;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 16px;
+      background: var(--aws-orange-dim);
+      border: 1px solid rgba(255, 153, 0, 0.25);
+      border-radius: 24px;
+      font-size: var(--small-size);
+      font-weight: 600;
+      color: var(--aws-orange);
+      margin-bottom: 20px;
+    }
+
+    .hero-badge svg { width: 16px; height: 16px; fill: var(--aws-orange); }
+
+    .hero h1 {
+      font-size: var(--title-size);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.15;
+      background: linear-gradient(135deg, var(--text-primary) 0%, var(--text-secondary) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 12px;
+    }
+
+    .hero-subtitle {
+      font-size: clamp(0.9rem, 1.4vw, 1.1rem);
+      color: var(--text-secondary);
+      max-width: 640px;
+      margin: 0 auto 28px;
+      line-height: 1.6;
+    }
+
+    .hero-stats {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .hero-stat {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 18px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-size: var(--small-size);
+      font-weight: 600;
+      color: var(--text-primary);
+      transition: border-color 0.2s, transform 0.2s;
+    }
+
+    .hero-stat:hover {
+      border-color: var(--border-light);
+      transform: translateY(-1px);
+    }
+
+    .hero-stat .stat-num {
+      font-family: var(--font-mono);
+      font-size: clamp(1rem, 1.5vw, 1.2rem);
+      font-weight: 800;
+      color: var(--aws-orange);
+    }
+
+    .hero-stat .stat-label { color: var(--text-secondary); }
+
+    /* ===========================================
+       MAIN CONTENT
+       =========================================== */
+    .main-content {
+      max-width: var(--content-max);
+      margin: 0 auto;
+      padding: 0 var(--spacing);
+    }
+
+    .section {
+      padding: clamp(2rem, 5vw, 4rem) 0;
+      opacity: 0;
+      transform: translateY(20px);
+    }
+
+    .section.visible {
+      opacity: 1;
+      transform: translateY(0);
+      transition: opacity 0.6s var(--ease), transform 0.6s var(--ease);
+    }
+
+    .section-header-block {
+      margin-bottom: clamp(1.5rem, 3vw, 2.5rem);
+    }
+
+    .section-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--font-mono);
+      font-size: var(--small-size);
+      font-weight: 600;
+      color: var(--aws-orange);
+      margin-bottom: 8px;
+    }
+
+    .section-tag-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      background: var(--aws-orange-dim);
+      border-radius: 6px;
+    }
+
+    .section h2 {
+      font-size: var(--heading-size);
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+      margin-bottom: 8px;
+    }
+
+    .section-desc {
+      font-size: var(--body-size);
+      color: var(--text-secondary);
+      max-width: 720px;
+      line-height: 1.7;
+    }
+
+    /* ===========================================
+       ARCHITECTURE DIAGRAM (Section 2)
+       =========================================== */
+    .arch-diagram {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      padding: clamp(20px, 3vw, 40px);
+      overflow-x: auto;
+    }
+
+    .arch-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      margin-bottom: 8px;
+    }
+
+    .arch-row.spread { justify-content: space-around; }
+
+    .arch-connector {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px 0;
+    }
+
+    .arch-arrow-down {
+      width: 2px;
+      height: 32px;
+      background: var(--border-light);
+      position: relative;
+    }
+
+    .arch-arrow-down::after {
+      content: '';
+      position: absolute;
+      bottom: -4px;
+      left: 50%;
+      transform: translateX(-50%);
+      border-left: 5px solid transparent;
+      border-right: 5px solid transparent;
+      border-top: 6px solid var(--border-light);
+    }
+
+    .arch-arrow-right {
+      width: 32px;
+      height: 2px;
+      background: var(--border-light);
+      position: relative;
+    }
+
+    .arch-arrow-right::after {
+      content: '';
+      position: absolute;
+      right: -4px;
+      top: 50%;
+      transform: translateY(-50%);
+      border-top: 5px solid transparent;
+      border-bottom: 5px solid transparent;
+      border-left: 6px solid var(--border-light);
+    }
+
+    .arch-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 12px 18px;
+      border-radius: var(--radius);
+      border: 1.5px solid;
+      min-width: 120px;
+      text-align: center;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .arch-box:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+    }
+
+    .arch-box-icon {
+      font-size: 1.3rem;
+      margin-bottom: 4px;
+    }
+
+    .arch-box-label {
+      font-weight: 700;
+      font-size: var(--small-size);
+      line-height: 1.2;
+    }
+
+    .arch-box-detail {
+      font-size: 10px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      margin-top: 2px;
+    }
+
+    /* Color variants */
+    .arch-box.cf { background: var(--cf-blue-dim); border-color: var(--cf-blue-border); color: var(--cf-blue); }
+    .arch-box.s3 { background: var(--s3-green-dim); border-color: var(--s3-green-border); color: var(--s3-green); }
+    .arch-box.ec2 { background: var(--ec2-orange-dim); border-color: var(--ec2-orange-border); color: var(--ec2-orange); }
+    .arch-box.waf { background: var(--waf-red-dim); border-color: var(--waf-red-border); color: var(--waf-red); }
+    .arch-box.dynamo { background: var(--dynamo-purple-dim); border-color: var(--dynamo-purple-border); color: var(--dynamo-purple); }
+    .arch-box.cognito { background: var(--cognito-teal-dim); border-color: var(--cognito-teal-border); color: var(--cognito-teal); }
+    .arch-box.aurora { background: var(--aurora-cyan-dim); border-color: var(--aurora-cyan-border); color: var(--aurora-cyan); }
+    .arch-box.lambda { background: var(--lambda-purple-dim); border-color: var(--lambda-purple-border); color: var(--lambda-purple); }
+    .arch-box.alb { background: var(--alb-amber-dim); border-color: var(--alb-amber-border); color: var(--alb-amber); }
+    .arch-box.user { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.15); color: var(--text-primary); }
+
+    .arch-box .arch-box-label { color: inherit; }
+    .arch-box .arch-box-detail { color: var(--text-muted); }
+
+    /* Full layout for large diagram */
+    .arch-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 0;
+      min-width: 700px;
+    }
+
+    .arch-level {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: nowrap;
+      gap: 12px;
+      padding: 4px 0;
+    }
+
+    .arch-branch {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .arch-horizontal-line {
+      height: 2px;
+      background: var(--border-light);
+      flex: 1;
+      min-width: 24px;
+    }
+
+    .arch-branch-group {
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      gap: 24px;
+      width: 100%;
+      padding: 0 20px;
+    }
+
+    .arch-branch-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .arch-path-label {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-muted);
+      padding: 2px 8px;
+      background: var(--bg-code);
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+
+    .arch-vpc-border {
+      border: 1.5px dashed var(--ec2-orange-border);
+      border-radius: var(--radius-lg);
+      padding: 16px;
+      position: relative;
+      margin: 0 auto;
+    }
+
+    .arch-vpc-label {
+      position: absolute;
+      top: -10px;
+      left: 16px;
+      padding: 0 8px;
+      background: var(--bg-card);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--ec2-orange);
+    }
+
+    /* ===========================================
+       DATA FLOW CARDS (Section 3)
+       =========================================== */
+    .flow-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+
+    @media (max-width: 768px) {
+      .flow-grid { grid-template-columns: 1fr; }
+    }
+
+    .flow-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      transition: border-color 0.2s, box-shadow 0.3s;
+    }
+
+    .flow-card:hover {
+      border-color: var(--border-light);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    }
+
+    .flow-card-header {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .flow-card-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+
+    .flow-card-header h3 {
+      font-size: var(--subheading-size);
+      font-weight: 700;
+    }
+
+    .flow-card-body {
+      padding: 16px;
+    }
+
+    .flow-step {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 8px 0;
+      position: relative;
+    }
+
+    .flow-step:not(:last-child)::after {
+      content: '';
+      position: absolute;
+      left: 11px;
+      top: 32px;
+      bottom: -8px;
+      width: 2px;
+      background: var(--border);
+    }
+
+    .flow-step-num {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      flex-shrink: 0;
+      border: 1.5px solid var(--border-light);
+      background: var(--bg-secondary);
+      color: var(--text-secondary);
+      z-index: 1;
+    }
+
+    .flow-step-content {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .flow-step-title {
+      font-weight: 600;
+      font-size: var(--small-size);
+      color: var(--text-primary);
+    }
+
+    .flow-step-desc {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* Cache decision tree */
+    .cache-tree {
+      padding: 0;
+      list-style: none;
+    }
+
+    .cache-tree-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      border-radius: var(--radius);
+      margin-bottom: 6px;
+      border: 1px solid var(--border);
+      background: var(--bg-secondary);
+    }
+
+    .cache-ttl {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 4px;
+      flex-shrink: 0;
+      min-width: 56px;
+      text-align: center;
+    }
+
+    .cache-ttl.long { background: var(--s3-green-dim); color: var(--s3-green); }
+    .cache-ttl.medium { background: var(--cf-blue-dim); color: var(--cf-blue); }
+    .cache-ttl.short { background: var(--ec2-orange-dim); color: var(--ec2-orange); }
+    .cache-ttl.none { background: var(--waf-red-dim); color: var(--waf-red); }
+
+    .cache-tree-label {
+      font-size: var(--small-size);
+      color: var(--text-secondary);
+    }
+
+    .cache-tree-label strong { color: var(--text-primary); font-weight: 600; }
+
+    /* ===========================================
+       VPC SECURITY (Section 4)
+       =========================================== */
+    .sg-chain {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      margin-bottom: 24px;
+    }
+
+    .sg-layer {
+      background: var(--bg-card);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 16px 20px;
+      display: grid;
+      grid-template-columns: 48px 1fr auto;
+      gap: 12px;
+      align-items: center;
+      position: relative;
+      transition: border-color 0.2s;
+    }
+
+    .sg-layer:hover { border-color: var(--border-light); }
+
+    .sg-layer-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+    }
+
+    .sg-layer-name {
+      font-weight: 700;
+      font-size: var(--body-size);
+    }
+
+    .sg-layer-detail {
+      font-size: var(--small-size);
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+
+    .sg-layer-rule {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 4px 12px;
+      border-radius: 6px;
+      white-space: nowrap;
+    }
+
+    .sg-connector {
+      display: flex;
+      justify-content: center;
+      padding: 4px 0;
+    }
+
+    .sg-arrow-down {
+      width: 2px;
+      height: 20px;
+      background: var(--border-light);
+      position: relative;
+      margin-left: 24px;
+    }
+
+    .sg-arrow-down::after {
+      content: '';
+      position: absolute;
+      bottom: -4px;
+      left: 50%;
+      transform: translateX(-50%);
+      border-left: 5px solid transparent;
+      border-right: 5px solid transparent;
+      border-top: 5px solid var(--border-light);
+    }
+
+    .sg-arrow-label {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-left: 12px;
+    }
+
+    .compare-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-top: 20px;
+    }
+
+    @media (max-width: 640px) {
+      .compare-grid { grid-template-columns: 1fr; }
+    }
+
+    .compare-card {
+      background: var(--bg-card);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 16px;
+    }
+
+    .compare-card h4 {
+      font-size: var(--body-size);
+      font-weight: 700;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .compare-card.good { border-color: var(--s3-green-border); }
+    .compare-card.good h4 { color: var(--s3-green); }
+    .compare-card.bad { border-color: var(--waf-red-border); }
+    .compare-card.bad h4 { color: var(--waf-red); }
+
+    .compare-list {
+      list-style: none;
+      padding: 0;
+    }
+
+    .compare-list li {
+      padding: 4px 0;
+      font-size: var(--small-size);
+      color: var(--text-secondary);
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+    }
+
+    .compare-list li::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      margin-top: 6px;
+    }
+
+    .compare-card.good .compare-list li::before { background: var(--s3-green); }
+    .compare-card.bad .compare-list li::before { background: var(--waf-red); }
+
+    /* ===========================================
+       UUID SECTION (Section 5)
+       =========================================== */
+    .uuid-flow-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    @media (max-width: 768px) {
+      .uuid-flow-grid { grid-template-columns: 1fr; }
+    }
+
+    .uuid-flow-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+
+    .uuid-flow-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      font-weight: 700;
+      font-size: var(--body-size);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .uuid-flow-body {
+      padding: 16px;
+    }
+
+    .ddb-schema {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+
+    .ddb-schema-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      font-weight: 700;
+      font-size: var(--body-size);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--dynamo-purple);
+    }
+
+    /* ===========================================
+       TABLE STYLES
+       =========================================== */
+    .info-table-wrap {
+      overflow-x: auto;
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border);
+    }
+
+    .info-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: var(--small-size);
+    }
+
+    .info-table th {
+      text-align: left;
+      padding: 10px 14px;
+      border-bottom: 2px solid var(--border);
+      color: var(--text-secondary);
+      font-weight: 600;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      white-space: nowrap;
+      background: var(--bg-secondary);
+    }
+
+    .info-table td {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-secondary);
+      vertical-align: middle;
+    }
+
+    .info-table tbody tr:last-child td { border-bottom: none; }
+    .info-table tbody tr:hover td { background: rgba(255,255,255,0.02); }
+
+    .info-table td:first-child {
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .info-table .mono {
+      font-family: var(--font-mono);
+      font-size: 11px;
+    }
+
+    .rule-action {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .rule-action.block { background: var(--waf-red-dim); color: var(--waf-red); }
+    .rule-action.count { background: var(--ec2-orange-dim); color: var(--ec2-orange); }
+    .rule-action.challenge { background: var(--dynamo-purple-dim); color: var(--dynamo-purple); }
+
+    /* ===========================================
+       SECURITY MATRIX
+       =========================================== */
+    .security-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .security-item {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px;
+      transition: border-color 0.2s;
+    }
+
+    .security-item:hover { border-color: var(--border-light); }
+
+    .security-item-title {
+      font-weight: 700;
+      font-size: var(--small-size);
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+
+    .security-item-desc {
+      font-size: 11px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    /* Bot Control workflow */
+    .bot-flow {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      margin-top: 16px;
+    }
+
+    .bot-flow h4 {
+      font-size: var(--body-size);
+      font-weight: 700;
+      margin-bottom: 12px;
+      color: var(--dynamo-purple);
+    }
+
+    .bot-flow-steps {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .bot-step {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-size: var(--small-size);
+      color: var(--text-secondary);
+    }
+
+    .bot-step-arrow {
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    /* ===========================================
+       TECH STACK (Section 7)
+       =========================================== */
+    .tech-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    @media (max-width: 768px) {
+      .tech-grid { grid-template-columns: 1fr; }
+    }
+
+    .tech-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+
+    .tech-card-header {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      font-weight: 700;
+      font-size: var(--body-size);
+    }
+
+    .tech-card-body { padding: 16px; }
+
+    .tech-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .tech-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-size: var(--small-size);
+      color: var(--text-primary);
+      font-weight: 500;
+      transition: border-color 0.2s;
+    }
+
+    .tech-tag:hover { border-color: var(--border-light); }
+
+    .tech-tag-icon {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    /* Cost table */
+    .cost-summary {
+      display: flex;
+      justify-content: center;
+      gap: 24px;
+      margin-top: 20px;
+      flex-wrap: wrap;
+    }
+
+    .cost-badge {
+      text-align: center;
+      padding: 16px 24px;
+      background: var(--bg-card);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-lg);
+    }
+
+    .cost-badge-value {
+      font-family: var(--font-mono);
+      font-size: clamp(1.2rem, 2vw, 1.6rem);
+      font-weight: 800;
+      color: var(--aws-orange);
+    }
+
+    .cost-badge-label {
+      font-size: var(--small-size);
+      color: var(--text-secondary);
+      margin-top: 4px;
+    }
+
+    /* ===========================================
+       FOOTER
+       =========================================== */
+    .footer {
+      max-width: var(--content-max);
+      margin: 0 auto;
+      padding: clamp(2rem, 4vw, 3rem) var(--spacing);
+      text-align: center;
+      border-top: 1px solid var(--border);
+    }
+
+    .footer-links {
+      display: flex;
+      justify-content: center;
+      gap: 24px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+
+    .footer-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: var(--small-size);
+      font-weight: 600;
+      color: var(--text-secondary);
+      padding: 6px 14px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      transition: all 0.15s;
+      text-decoration: none;
+    }
+
+    .footer-link:hover {
+      border-color: var(--aws-orange);
+      color: var(--aws-orange);
+    }
+
+    .footer-link svg { width: 14px; height: 14px; }
+
+    .footer-text {
+      font-size: var(--small-size);
+      color: var(--text-muted);
+      line-height: 1.7;
+    }
+
+    /* ===========================================
+       FLOATING ACTION BUTTON
+       =========================================== */
+    .fab-group {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 999;
+    }
+
+    .fab {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      color: var(--text-secondary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s var(--ease);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+
+    .fab:hover {
+      background: var(--aws-orange-dim);
+      border-color: var(--aws-orange);
+      color: var(--aws-orange);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+    }
+
+    .fab svg { width: 18px; height: 18px; }
+
+    /* ===========================================
+       ANIMATIONS
+       =========================================== */
+    @keyframes fadeUp {
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .hero-stats { gap: 8px; }
+      .hero-stat { padding: 6px 12px; }
+      .sg-layer { grid-template-columns: 1fr; gap: 8px; }
+      .sg-layer-rule { justify-self: start; }
+      .arch-diagram { padding: 12px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ===== STICKY NAV ===== -->
+  <nav class="toc-nav" id="tocNav">
+    <div class="toc-inner">
+      <a href="#hero" class="toc-link active" data-section="hero"><span class="toc-num">H</span>Home</a>
+      <a href="#arch" class="toc-link" data-section="arch"><span class="toc-num">1</span>AWS 架构</a>
+      <a href="#flow" class="toc-link" data-section="flow"><span class="toc-num">2</span>数据流</a>
+      <a href="#vpc" class="toc-link" data-section="vpc"><span class="toc-num">3</span>VPC Origin</a>
+      <a href="#uuid" class="toc-link" data-section="uuid"><span class="toc-num">4</span>UUID 追踪</a>
+      <a href="#waf" class="toc-link" data-section="waf"><span class="toc-num">5</span>WAF 安全</a>
+      <a href="#tech" class="toc-link" data-section="tech"><span class="toc-num">6</span>技术栈</a>
+    </div>
+  </nav>
+
+  <!-- ===== SECTION 1: HERO ===== -->
+  <section class="hero" id="hero">
+    <div class="hero-badge">
+      <svg viewBox="0 0 24 24"><path d="M18.75 3.94L12 .64 5.25 3.94 12 7.24l6.75-3.3zM4.5 5.08v8.84L11.25 17.22V8.38L4.5 5.08zM12.75 8.38v8.84l6.75-3.3V5.08L12.75 8.38zM5.25 20.06L12 23.36l6.75-3.3L12 16.76l-6.75 3.3z"/></svg>
+      Amazon CloudFront
+    </div>
+    <h1>CloudFront 全功能演示平台<br/>架构设计</h1>
+    <p class="hero-subtitle">基于 Amazon CloudFront 构建的电商模拟网站参考架构，覆盖内容分发、边缘计算、安全防护、网络架构、发布管理、缓存管理与用户追踪七大领域。</p>
+    <div class="hero-stats">
+      <div class="hero-stat">
+        <span class="stat-num">14</span>
+        <span class="stat-label">项功能</span>
+      </div>
+      <div class="hero-stat">
+        <span class="stat-num">8</span>
+        <span class="stat-label">Terraform 模块</span>
+      </div>
+      <div class="hero-stat">
+        <span class="stat-num">12</span>
+        <span class="stat-label">篇 Hands-on</span>
+      </div>
+      <div class="hero-stat">
+        <span class="stat-num">600+</span>
+        <span class="stat-label">全球 PoP</span>
+      </div>
+    </div>
+  </section>
+
+  <div class="main-content">
+
+    <!-- ===== SECTION 2: AWS 架构图 ===== -->
+    <div class="section-divider"><div class="section-divider-line"></div></div>
+    <section class="section" id="arch">
+      <div class="section-header-block">
+        <div class="section-tag"><span class="section-tag-num">1</span> ARCHITECTURE</div>
+        <h2>整体 AWS 架构</h2>
+        <p class="section-desc">CloudFront 统一入口，S3 + VPC Origin (Internal ALB) 双源架构。WAF 防护在前，CF Functions 在边缘执行，所有后端资源部署在 Private Subnet 中零公网暴露。</p>
+      </div>
+
+      <div class="arch-diagram">
+        <div class="arch-grid">
+
+          <!-- Layer 1: Users -->
+          <div class="arch-level">
+            <div class="arch-box user">
+              <div class="arch-box-icon">&#x1F464;</div>
+              <div class="arch-box-label">Global Users</div>
+              <div class="arch-box-detail">unice.keithyu.cloud</div>
+            </div>
+          </div>
+
+          <div class="arch-connector"><div class="arch-arrow-down"></div></div>
+
+          <!-- Layer 2: DNS -->
+          <div class="arch-level">
+            <div class="arch-box cf" style="min-width: 160px;">
+              <div class="arch-box-icon">&#x1F310;</div>
+              <div class="arch-box-label">Route 53</div>
+              <div class="arch-box-detail">ALIAS → CloudFront</div>
+            </div>
+          </div>
+
+          <div class="arch-connector"><div class="arch-arrow-down"></div></div>
+
+          <!-- Layer 3: WAF + CloudFront -->
+          <div class="arch-level">
+            <div class="arch-box waf">
+              <div class="arch-box-icon">&#x1F6E1;</div>
+              <div class="arch-box-label">WAF Web ACL</div>
+              <div class="arch-box-detail">6 Rules + Bot Control</div>
+            </div>
+            <div class="arch-arrow-right"></div>
+            <div class="arch-box cf" style="min-width: 260px;">
+              <div class="arch-box-icon">&#x26A1;</div>
+              <div class="arch-box-label">CloudFront Distribution</div>
+              <div class="arch-box-detail">EKM1WK5FUL5ZU | 10 Behaviors | 3 CF Functions</div>
+            </div>
+          </div>
+
+          <div class="arch-connector" style="display: flex; gap: 60px; justify-content: center;">
+            <div style="text-align: center;">
+              <div class="arch-path-label">/static/* /images/*</div>
+              <div class="arch-arrow-down" style="margin: 0 auto;"></div>
+            </div>
+            <div style="text-align: center;">
+              <div class="arch-path-label">/api/* Default (*)</div>
+              <div class="arch-arrow-down" style="margin: 0 auto;"></div>
+            </div>
+            <div style="text-align: center;">
+              <div class="arch-path-label">/premium/*</div>
+              <div class="arch-arrow-down" style="margin: 0 auto;"></div>
+            </div>
+          </div>
+
+          <!-- Layer 4: Origins (S3, VPC Origin, S3 Signed) -->
+          <div class="arch-level" style="gap: 24px;">
+            <div class="arch-box s3">
+              <div class="arch-box-icon">&#x1F4E6;</div>
+              <div class="arch-box-label">S3 Bucket (OAC)</div>
+              <div class="arch-box-detail">静态资源 + 错误页面</div>
+            </div>
+
+            <div class="arch-vpc-border" style="display: inline-flex; flex-direction: column; align-items: center; gap: 8px;">
+              <div class="arch-vpc-label">VPC Private Subnet</div>
+              <div class="arch-box cf" style="min-width: 130px;">
+                <div class="arch-box-icon">&#x1F517;</div>
+                <div class="arch-box-label">VPC Origin ENI</div>
+                <div class="arch-box-detail">AWS 骨干网</div>
+              </div>
+              <div class="arch-arrow-down" style="height: 16px;"></div>
+              <div class="arch-box alb">
+                <div class="arch-box-icon">&#x2696;</div>
+                <div class="arch-box-label">Internal ALB</div>
+                <div class="arch-box-detail">HTTP:80 → Target Group</div>
+              </div>
+              <div class="arch-arrow-down" style="height: 16px;"></div>
+              <div class="arch-box ec2">
+                <div class="arch-box-icon">&#x1F4BB;</div>
+                <div class="arch-box-label">EC2 Express</div>
+                <div class="arch-box-detail">t3.medium :3000</div>
+              </div>
+              <div style="display: flex; gap: 12px; margin-top: 4px;">
+                <div class="arch-box aurora" style="min-width: 90px; padding: 8px 10px;">
+                  <div class="arch-box-label" style="font-size: 10px;">Aurora v2</div>
+                  <div class="arch-box-detail">PG 16.4 :5432</div>
+                </div>
+                <div class="arch-box dynamo" style="min-width: 90px; padding: 8px 10px;">
+                  <div class="arch-box-label" style="font-size: 10px;">DynamoDB</div>
+                  <div class="arch-box-detail">UUID + Tags</div>
+                </div>
+                <div class="arch-box cognito" style="min-width: 90px; padding: 8px 10px;">
+                  <div class="arch-box-label" style="font-size: 10px;">Cognito</div>
+                  <div class="arch-box-detail">JWT Auth</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="arch-box s3">
+              <div class="arch-box-icon">&#x1F511;</div>
+              <div class="arch-box-label">S3 (Signed URL)</div>
+              <div class="arch-box-detail">RSA 2048 保护</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Lambda@Edge attachment note -->
+      <div style="margin-top: 16px; display: flex; gap: 12px; flex-wrap: wrap;">
+        <div class="arch-box lambda" style="display: inline-flex; flex-direction: row; gap: 8px; min-width: auto; padding: 8px 14px;">
+          <span style="font-size: 13px;">&#x03BB;</span>
+          <div>
+            <div class="arch-box-label" style="font-size: 11px;">Lambda@Edge (Origin Response)</div>
+            <div class="arch-box-detail">Cache-Tag 提取 → DynamoDB 映射 → 精准失效</div>
+          </div>
+        </div>
+        <div class="arch-box lambda" style="display: inline-flex; flex-direction: row; gap: 8px; min-width: auto; padding: 8px 14px;">
+          <span style="font-size: 13px;">&#x03BB;</span>
+          <div>
+            <div class="arch-box-label" style="font-size: 11px;">Lambda (Invalidation Trigger)</div>
+            <div class="arch-box-detail">Step Functions 编排 → CloudFront CreateInvalidation API</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== SECTION 3: DATA FLOW ===== -->
+    <div class="section-divider"><div class="section-divider-line"></div></div>
+    <section class="section" id="flow">
+      <div class="section-header-block">
+        <div class="section-tag"><span class="section-tag-num">2</span> DATA FLOW</div>
+        <h2>数据流架构</h2>
+        <p class="section-desc">三条核心数据流：请求从用户到源站的完整路径、CloudFront 缓存策略决策树、以及基于标签的精准缓存失效机制。</p>
+      </div>
+
+      <div class="flow-grid">
+
+        <!-- Card 1: Request Flow -->
+        <div class="flow-card">
+          <div class="flow-card-header">
+            <div class="flow-card-icon" style="background: var(--cf-blue-dim); color: var(--cf-blue);">&#x2197;</div>
+            <h3>请求流 Request Flow</h3>
+          </div>
+          <div class="flow-card-body">
+            <div class="flow-step">
+              <div class="flow-step-num">1</div>
+              <div class="flow-step-content">
+                <div class="flow-step-title">DNS 解析</div>
+                <div class="flow-step-desc">Route 53 ALIAS → CloudFront Edge (最近 PoP)</div>
+              </div>
+            </div>
+            <div class="flow-step">
+              <div class="flow-step-num">2</div>
+              <div class="flow-step-content">
+                <div class="flow-step-title">WAF 规则评估</div>
+                <div class="flow-step-desc">6 条规则依优先级逐条检查，Block/Count/Challenge</div>
+              </div>
+            </div>
+            <div class="flow-step">
+              <div class="flow-step-num">3</div>
+              <div class="flow-step-content">
+                <div class="flow-step-title">CF Function (Viewer Request)</div>
+                <div class="flow-step-desc">URL 重写 / A/B 分流 / 地理重定向</div>
+              </div>
+            </div>
+            <div class="flow-step">
+              <div class="flow-step-num">4</div>
+              <div class="flow-step-content">
+                <div class="flow-step-title">Cache 检查</div>
+                <div class="flow-step-desc">命中 → 直接返回；未命中 → 回源</div>
+              </div>
+            </div>
+            <div class="flow-step">
+              <div class="flow-step-num">5</div>
+              <div class="flow-step-content">
+                <div class="flow-step-title">Origin (S3 / ALB)</div>
+                <div class="flow-step-desc">S3 OAC 签名 / VPC Origin ENI → Internal ALB</div>
+              </div>
+            </div>
+            <div class="flow-step">
+              <div class="flow-step-num">6</div>
+              <div class="flow-step-content">
+                <div class="flow-step-title">Response Headers Policy</div>
+                <div class="flow-step-desc">注入安全头 HSTS/X-Frame/CSP，缓存并返回</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card 2: Cache Flow -->
+        <div class="flow-card">
+          <div class="flow-card-header">
+            <div class="flow-card-icon" style="background: var(--s3-green-dim); color: var(--s3-green);">&#x1F4BE;</div>
+            <h3>缓存流 Cache Policy</h3>
+          </div>
+          <div class="flow-card-body">
+            <ul class="cache-tree">
+              <li class="cache-tree-item">
+                <span class="cache-ttl long">24h</span>
+                <span class="cache-tree-label"><strong>CachingOptimized</strong> — /static/* /images/*<br/>静态资源，Brotli + Gzip 压缩</span>
+              </li>
+              <li class="cache-tree-item">
+                <span class="cache-ttl medium">1h</span>
+                <span class="cache-tree-label"><strong>ProductCache</strong> — /api/products*<br/>按 page/category/sort QS 区分缓存键</span>
+              </li>
+              <li class="cache-tree-item">
+                <span class="cache-ttl short">60s</span>
+                <span class="cache-tree-label"><strong>PageCache</strong> — Default (*)<br/>SSR 页面，仅转发 x-trace-id + waf-token</span>
+              </li>
+              <li class="cache-tree-item">
+                <span class="cache-ttl none">0</span>
+                <span class="cache-tree-label"><strong>CachingDisabled</strong> — /api/cart /api/user /api/debug<br/>全部透传，不缓存</span>
+              </li>
+            </ul>
+            <div style="margin-top: 12px; padding: 10px 12px; background: var(--bg-secondary); border-radius: var(--radius); font-size: 11px; color: var(--text-muted); line-height: 1.6;">
+              <strong style="color: var(--text-secondary);">Cache Key 组成：</strong>URL 路径 + 转发的 Query String + 白名单 Cookie + 压缩格式。精准控制缓存键粒度是 CloudFront 性能优化的关键。
+            </div>
+          </div>
+        </div>
+
+        <!-- Card 3: Invalidation Flow -->
+        <div class="flow-card">
+          <div class="flow-card-header">
+            <div class="flow-card-icon" style="background: var(--lambda-purple-dim); color: var(--lambda-purple);">&#x1F3F7;</div>
+            <h3>失效流 Tag Invalidation</h3>
+          </div>
+          <div class="flow-card-body">
+            <div class="flow-step">
+              <div class="flow-step-num">1</div>
+              <div class="flow-step-content">
+                <div class="flow-step-title">Origin Response + Cache-Tag</div>
+                <div class="flow-step-desc">Express 在响应头添加 Cache-Tag: product-123, category-wigs</div>
+              </div>
+            </div>
+            <div class="flow-step">
+              <div class="flow-step-num">2</div>
+              <div class="flow-step-content">
+                <div class="flow-step-title">Lambda@Edge 提取标签</div>
+                <div class="flow-step-desc">解析 Cache-Tag → SNS 发布 → SQS 聚合</div>
+              </div>
+            </div>
+            <div class="flow-step">
+              <div class="flow-step-num">3</div>
+              <div class="flow-step-content">
+                <div class="flow-step-title">DynamoDB 存储映射</div>
+                <div class="flow-step-desc">PK=tag SK=url，TTL 跟随 Cache-Control max-age</div>
+              </div>
+            </div>
+            <div class="flow-step">
+              <div class="flow-step-num">4</div>
+              <div class="flow-step-content">
+                <div class="flow-step-title">Admin API 触发失效</div>
+                <div class="flow-step-desc">POST /api/admin/invalidate-tag { tags: [...] }</div>
+              </div>
+            </div>
+            <div class="flow-step">
+              <div class="flow-step-num">5</div>
+              <div class="flow-step-content">
+                <div class="flow-step-title">Step Functions 编排</div>
+                <div class="flow-step-desc">查询 DynamoDB → URL 去重分组 → 速率控制 → CreateInvalidation</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ===== SECTION 4: VPC ORIGIN ===== -->
+    <div class="section-divider"><div class="section-divider-line"></div></div>
+    <section class="section" id="vpc">
+      <div class="section-header-block">
+        <div class="section-tag"><span class="section-tag-num">3</span> VPC ORIGIN</div>
+        <h2>VPC Origin 全内网架构</h2>
+        <p class="section-desc">CloudFront VPC Origin (2024 新功能) 在客户 VPC 内创建 ENI，通过 AWS 骨干网直连 Internal ALB。源站零公网暴露，安全组形成严格的链式信任关系。</p>
+      </div>
+
+      <!-- Security Group Chain -->
+      <div class="sg-chain">
+        <!-- Layer 1: VPC Origin -->
+        <div class="sg-layer" style="border-color: var(--cf-blue-border);">
+          <div class="sg-layer-icon" style="background: var(--cf-blue-dim); color: var(--cf-blue);">&#x1F517;</div>
+          <div>
+            <div class="sg-layer-name" style="color: var(--cf-blue);">CloudFront VPC Origin SG</div>
+            <div class="sg-layer-detail">sg-0d97718bd9a94aa03 | CloudFront 在 Private Subnet 中创建的 ENI，流量通过 AWS 骨干网传输</div>
+          </div>
+          <div class="sg-layer-rule" style="background: var(--cf-blue-dim); color: var(--cf-blue);">Outbound: ALB SG :80</div>
+        </div>
+
+        <div class="sg-connector">
+          <div class="sg-arrow-down"></div>
+          <span class="sg-arrow-label">HTTP :80 (仅允许 VPC Origin SG 入站)</span>
+        </div>
+
+        <!-- Layer 2: ALB -->
+        <div class="sg-layer" style="border-color: var(--alb-amber-border);">
+          <div class="sg-layer-icon" style="background: var(--alb-amber-dim); color: var(--alb-amber);">&#x2696;</div>
+          <div>
+            <div class="sg-layer-name" style="color: var(--alb-amber);">Internal ALB SG</div>
+            <div class="sg-layer-detail">sg-008f9350b6aa9f27f | Internal scheme，无公网 IP，仅接受 VPC Origin ENI 流量</div>
+          </div>
+          <div class="sg-layer-rule" style="background: var(--alb-amber-dim); color: var(--alb-amber);">Inbound: VPC Origin SG :80</div>
+        </div>
+
+        <div class="sg-connector">
+          <div class="sg-arrow-down"></div>
+          <span class="sg-arrow-label">HTTP :3000 (仅允许 ALB SG 入站)</span>
+        </div>
+
+        <!-- Layer 3: EC2 -->
+        <div class="sg-layer" style="border-color: var(--ec2-orange-border);">
+          <div class="sg-layer-icon" style="background: var(--ec2-orange-dim); color: var(--ec2-orange);">&#x1F4BB;</div>
+          <div>
+            <div class="sg-layer-name" style="color: var(--ec2-orange);">EC2 Express SG</div>
+            <div class="sg-layer-detail">sg-05b4d37af40851c20 | Node.js Express 应用，监听 port 3000，仅响应 ALB 转发</div>
+          </div>
+          <div class="sg-layer-rule" style="background: var(--ec2-orange-dim); color: var(--ec2-orange);">Inbound: ALB SG :3000</div>
+        </div>
+
+        <div class="sg-connector">
+          <div class="sg-arrow-down"></div>
+          <span class="sg-arrow-label">PostgreSQL :5432 (仅允许 EC2 SG 入站)</span>
+        </div>
+
+        <!-- Layer 4: Aurora -->
+        <div class="sg-layer" style="border-color: var(--aurora-cyan-border);">
+          <div class="sg-layer-icon" style="background: var(--aurora-cyan-dim); color: var(--aurora-cyan);">&#x1F4CA;</div>
+          <div>
+            <div class="sg-layer-name" style="color: var(--aurora-cyan);">Aurora Serverless v2 SG</div>
+            <div class="sg-layer-detail">sg-0a212fc941d67f617 | PostgreSQL 16.4，ACU 0.5~2，仅接受应用层连接</div>
+          </div>
+          <div class="sg-layer-rule" style="background: var(--aurora-cyan-dim); color: var(--aurora-cyan);">Inbound: EC2 SG :5432</div>
+        </div>
+      </div>
+
+      <!-- Comparison -->
+      <div class="compare-grid">
+        <div class="compare-card good">
+          <h4><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> VPC Origin 架构 (本平台)</h4>
+          <ul class="compare-list">
+            <li>ALB 零公网暴露，Internal scheme</li>
+            <li>4 层安全组链式信任，最小权限</li>
+            <li>流量走 AWS 骨干网，延迟更低</li>
+            <li>无需 NAT Gateway 的源站访问路径</li>
+            <li>DynamoDB 通过 VPC Endpoint (Gateway) 访问</li>
+          </ul>
+        </div>
+        <div class="compare-card bad">
+          <h4><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> 传统 Public ALB 架构</h4>
+          <ul class="compare-list">
+            <li>ALB 暴露公网 IP，可被直接访问</li>
+            <li>绕过 CloudFront/WAF 直攻源站</li>
+            <li>需额外配置 IP 白名单 (CloudFront IP 范围经常变更)</li>
+            <li>无法利用 AWS 骨干网加速</li>
+            <li>安全组配置复杂，容易遗漏</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== SECTION 5: UUID TRACKING ===== -->
+    <div class="section-divider"><div class="section-divider-line"></div></div>
+    <section class="section" id="uuid">
+      <div class="section-header-block">
+        <div class="section-tag"><span class="section-tag-num">4</span> UUID TRACKING</div>
+        <h2>UUID 链路追踪设计</h2>
+        <p class="section-desc">服务端 UUID 方案：EC2 Express 中间件生成 UUID v4，通过 HttpOnly Cookie 持久化（2 年）。登录后绑定 Cognito 账号，实现跨设备统一追踪。广告拦截器无法屏蔽。</p>
+      </div>
+
+      <div class="uuid-flow-grid">
+        <!-- Anonymous User Flow -->
+        <div class="uuid-flow-card">
+          <div class="uuid-flow-header" style="color: var(--cf-blue);">
+            <span>&#x1F464;</span> 匿名用户流程
+          </div>
+          <div class="uuid-flow-body">
+            <div class="flow-step">
+              <div class="flow-step-num" style="border-color: var(--cf-blue-border); color: var(--cf-blue);">1</div>
+              <div class="flow-step-content">
+                <div class="flow-step-title">首次访问</div>
+                <div class="flow-step-desc">请求进入 Express，<code>uuid-tracker</code> 中间件检查 Cookie</div>
+              </div>
+            </div>
+            <div class="flow-step">
+              <div class="flow-step-num" style="border-color: var(--cf-blue-border); color: var(--cf-blue);">2</div>
+              <div class="flow-step-content">
+                <div class="flow-step-title">生成 UUID v4</div>
+                <div class="flow-step-desc">无 Cookie → 生成新 UUID，设置 <code>req.traceId</code></div>
+              </div>
+            </div>
+            <div class="flow-step">
+              <div class="flow-step-num" style="border-color: var(--cf-blue-border); color: var(--cf-blue);">3</div>
+              <div class="flow-step-content">
+                <div class="flow-step-title">Set-Cookie 返回</div>
+                <div class="flow-step-desc"><code>x-trace-id=UUID; HttpOnly; Secure; SameSite=Lax; Max-Age=63072000</code></div>
+              </div>
+            </div>
+            <div class="flow-step">
+              <div class="flow-step-num" style="border-color: var(--cf-blue-border); color: var(--cf-blue);">4</div>
+              <div class="flow-step-content">
+                <div class="flow-step-title">后续请求</div>
+                <div class="flow-step-desc">自动携带 Cookie，中间件读取 UUID 设置 <code>X-Trace-Id</code> 响应头</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Logged-in User Flow -->
+        <div class="uuid-flow-card">
+          <div class="uuid-flow-header" style="color: var(--cognito-teal);">
+            <span>&#x1F512;</span> 登录用户流程
+          </div>
+          <div class="uuid-flow-body">
+            <div class="flow-step">
+              <div class="flow-step-num" style="border-color: var(--cognito-teal-border); color: var(--cognito-teal);">1</div>
+              <div class="flow-step-content">
+                <div class="flow-step-title">Cognito 登录</div>
+                <div class="flow-step-desc">用户名/密码 → Cognito API → JWT (access_token + id_token)</div>
+              </div>
+            </div>
+            <div class="flow-step">
+              <div class="flow-step-num" style="border-color: var(--cognito-teal-border); color: var(--cognito-teal);">2</div>
+              <div class="flow-step-content">
+                <div class="flow-step-title">查询 DynamoDB</div>
+                <div class="flow-step-desc">PK = cognito_user_id 查找已绑定的 UUID</div>
+              </div>
+            </div>
+            <div class="flow-step">
+              <div class="flow-step-num" style="border-color: var(--cognito-teal-border); color: var(--cognito-teal);">3</div>
+              <div class="flow-step-content">
+                <div class="flow-step-title">UUID 统一</div>
+                <div class="flow-step-desc">存在 → 覆盖当前 Cookie 为数据库 UUID (跨设备统一)<br/>不存在 → 绑定当前 UUID 到 DynamoDB</div>
+              </div>
+            </div>
+            <div class="flow-step">
+              <div class="flow-step-num" style="border-color: var(--cognito-teal-border); color: var(--cognito-teal);">4</div>
+              <div class="flow-step-content">
+                <div class="flow-step-title">返回 JWT + UUID</div>
+                <div class="flow-step-desc">Set-Cookie 更新 UUID，后续所有设备登录后使用统一 trace_id</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- DynamoDB Schema -->
+      <div class="ddb-schema">
+        <div class="ddb-schema-header">
+          <span>&#x1F4CA;</span> DynamoDB: unice-trace-mapping
+        </div>
+        <div style="padding: 0;">
+          <div class="info-table-wrap" style="border: none; border-radius: 0;">
+            <table class="info-table">
+              <thead>
+                <tr>
+                  <th>属性</th>
+                  <th>类型</th>
+                  <th>角色</th>
+                  <th>说明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>cognito_user_id</code></td>
+                  <td class="mono">String</td>
+                  <td><span class="rule-action block" style="background: var(--dynamo-purple-dim); color: var(--dynamo-purple);">PK</span></td>
+                  <td>Cognito 用户唯一标识符 (sub)</td>
+                </tr>
+                <tr>
+                  <td><code>trace_id</code></td>
+                  <td class="mono">String</td>
+                  <td><span class="rule-action count" style="background: var(--cf-blue-dim); color: var(--cf-blue);">GSI-PK</span></td>
+                  <td>UUID v4，GSI: trace_id-index 支持反查</td>
+                </tr>
+                <tr>
+                  <td><code>created_at</code></td>
+                  <td class="mono">String</td>
+                  <td>-</td>
+                  <td>首次绑定时间，ISO 8601</td>
+                </tr>
+                <tr>
+                  <td><code>last_device</code></td>
+                  <td class="mono">String</td>
+                  <td>-</td>
+                  <td>最近登录设备 User-Agent 摘要</td>
+                </tr>
+                <tr>
+                  <td><code>last_seen</code></td>
+                  <td class="mono">String</td>
+                  <td>-</td>
+                  <td>最近活跃时间，ISO 8601</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+        <div style="padding: 12px 16px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); font-size: var(--small-size);">
+          <div style="font-weight: 700; color: var(--text-primary); margin-bottom: 4px;">匿名用户特性</div>
+          <div style="color: var(--text-muted); line-height: 1.6;">UUID 仅存于 Cookie（2 年有效），清 Cookie 即丢失。每设备独立，不写入 DynamoDB。HttpOnly 属性防止前端 JS 篡改。</div>
+        </div>
+        <div style="padding: 12px 16px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); font-size: var(--small-size);">
+          <div style="font-weight: 700; color: var(--text-primary); margin-bottom: 4px;">登录用户特性</div>
+          <div style="color: var(--text-muted); line-height: 1.6;">UUID 永久绑定 Cognito 账号，DynamoDB 记录。任何设备登录后统一为同一 UUID，支持跨设备归因分析。</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== SECTION 6: WAF + SECURITY ===== -->
+    <div class="section-divider"><div class="section-divider-line"></div></div>
+    <section class="section" id="waf">
+      <div class="section-header-block">
+        <div class="section-tag"><span class="section-tag-num">5</span> SECURITY</div>
+        <h2>WAF + CloudFront 安全体系</h2>
+        <p class="section-desc">多层纵深防御：WAF 6 条规则链覆盖 OWASP Top 10，Bot Control Targeted 级别 + JS SDK 浏览器指纹识别，CloudFront 原生安全功能矩阵提供额外保护。</p>
+      </div>
+
+      <!-- WAF Rules Table -->
+      <h3 style="font-size: var(--subheading-size); font-weight: 700; margin-bottom: 12px; color: var(--waf-red);">WAF 规则优先级链</h3>
+      <div class="info-table-wrap" style="margin-bottom: 24px;">
+        <table class="info-table">
+          <thead>
+            <tr>
+              <th>Priority</th>
+              <th>规则名称</th>
+              <th>类型</th>
+              <th>动作</th>
+              <th>检测原理</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="mono">1</td>
+              <td>AWS Common Rule Set</td>
+              <td>AWS 托管</td>
+              <td><span class="rule-action count">COUNT</span></td>
+              <td>正则匹配 SQLi/XSS/SSRF/路径遍历等 OWASP Top 10 攻击模式，建议观察后切 Block</td>
+            </tr>
+            <tr>
+              <td class="mono">2</td>
+              <td>AWS Known Bad Inputs</td>
+              <td>AWS 托管</td>
+              <td><span class="rule-action block">BLOCK</span></td>
+              <td>检测已知恶意 payload，包括 Log4j JNDI (CVE-2021-44228)、Spring4Shell 等零日漏洞利用</td>
+            </tr>
+            <tr>
+              <td class="mono">3</td>
+              <td>AWS Bot Control (Targeted)</td>
+              <td>AWS 托管</td>
+              <td><span class="rule-action challenge">CHALLENGE</span></td>
+              <td>行为分析 + ML 模型，JS SDK 浏览器指纹验证，区分真实用户与自动化工具</td>
+            </tr>
+            <tr>
+              <td class="mono">4</td>
+              <td>RateLimitRule</td>
+              <td>自定义</td>
+              <td><span class="rule-action block">BLOCK</span></td>
+              <td>同一 IP 5 分钟内 &gt; 2000 次请求触发封禁，防暴力破解和简单 DDoS</td>
+            </tr>
+            <tr>
+              <td class="mono">5</td>
+              <td>AWS IP Reputation List</td>
+              <td>AWS 托管</td>
+              <td><span class="rule-action count">COUNT</span></td>
+              <td>AWS 维护的恶意 IP 信誉库，标记僵尸网络节点、匿名代理、Tor 出口节点</td>
+            </tr>
+            <tr>
+              <td class="mono">6</td>
+              <td>GeoBlockRule</td>
+              <td>自定义</td>
+              <td><span class="rule-action block">BLOCK</span></td>
+              <td>基于 MaxMind GeoIP 数据库识别请求来源国家，当前封禁 KP (朝鲜) / IR (伊朗)</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Bot Control Workflow -->
+      <div class="bot-flow">
+        <h4>Bot Control Targeted 工作流</h4>
+        <div class="bot-flow-steps">
+          <div class="bot-step">&#x1F310; 页面加载</div>
+          <span class="bot-step-arrow">&#x2192;</span>
+          <div class="bot-step">&#x1F4DC; 加载 WAF JS SDK</div>
+          <span class="bot-step-arrow">&#x2192;</span>
+          <div class="bot-step">&#x1F50D; Canvas/WebGL/JS 引擎指纹采集</div>
+          <span class="bot-step-arrow">&#x2192;</span>
+          <div class="bot-step">&#x1F36A; 生成 aws-waf-token Cookie</div>
+          <span class="bot-step-arrow">&#x2192;</span>
+          <div class="bot-step">&#x1F6E1; WAF 验证 Token</div>
+          <span class="bot-step-arrow">&#x2192;</span>
+          <div class="bot-step" style="border-color: var(--s3-green-border);">&#x2705; 有效 → 放行</div>
+          <div class="bot-step" style="border-color: var(--waf-red-border);">&#x274C; 无效 → Challenge/Block</div>
+        </div>
+        <div style="margin-top: 12px; font-size: 11px; color: var(--text-muted); line-height: 1.6;">
+          Token 有效期 5 分钟，SDK 自动续期。无 Token 的 curl/脚本请求触发 Challenge 页面（静默验证），反复失败则判定为机器人。前端集成：<code>&lt;script src="/challenge.js" defer&gt;&lt;/script&gt;</code>
+        </div>
+      </div>
+
+      <!-- CloudFront Security Matrix -->
+      <h3 style="font-size: var(--subheading-size); font-weight: 700; margin: 24px 0 12px; color: var(--cf-blue);">CloudFront 安全功能矩阵</h3>
+      <div class="security-grid">
+        <div class="security-item" style="border-color: var(--s3-green-border);">
+          <div class="security-item-title" style="color: var(--s3-green);">OAC (Origin Access Control)</div>
+          <div class="security-item-desc">SigV4 签名确保 S3 桶仅可通过指定 CloudFront Distribution 访问，替代旧版 OAI，支持 SSE-KMS</div>
+        </div>
+        <div class="security-item" style="border-color: var(--ec2-orange-border);">
+          <div class="security-item-title" style="color: var(--ec2-orange);">签名 URL/Cookie</div>
+          <div class="security-item-desc">RSA 2048 非对称加密保护 /premium/* 会员内容，1 小时有效期，Trusted Key Group 验证</div>
+        </div>
+        <div class="security-item" style="border-color: var(--cf-blue-border);">
+          <div class="security-item-title" style="color: var(--cf-blue);">地理限制</div>
+          <div class="security-item-desc">CloudFront Geo Restriction (黑名单: KP/IR) + WAF GeoBlockRule 双层控制</div>
+        </div>
+        <div class="security-item" style="border-color: var(--cognito-teal-border);">
+          <div class="security-item-title" style="color: var(--cognito-teal);">HTTPS Only</div>
+          <div class="security-item-desc">ACM 通配符证书 (*.keithyu.cloud)，Viewer Protocol Policy: redirect-to-https，TLS 1.2+</div>
+        </div>
+        <div class="security-item" style="border-color: var(--lambda-purple-border);">
+          <div class="security-item-title" style="color: var(--lambda-purple);">Response Headers Policy</div>
+          <div class="security-item-desc">HSTS (2年) / X-Frame-Options: DENY / X-Content-Type-Options / XSS-Protection / Referrer-Policy</div>
+        </div>
+        <div class="security-item" style="border-color: var(--alb-amber-border);">
+          <div class="security-item-title" style="color: var(--alb-amber);">自定义错误页面</div>
+          <div class="security-item-desc">品牌化 403/404/500/502 错误页面，4xx 缓存 300s，5xx 缓存 60s 快速恢复</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== SECTION 7: TECH STACK + COST ===== -->
+    <div class="section-divider"><div class="section-divider-line"></div></div>
+    <section class="section" id="tech">
+      <div class="section-header-block">
+        <div class="section-tag"><span class="section-tag-num">6</span> TECH & COST</div>
+        <h2>技术栈 + 费用估算</h2>
+        <p class="section-desc">全栈技术选型覆盖 IaC、CDN、计算、存储、安全、数据库、认证、边缘计算和应用层。最小配置月费约 $108，全功能约 $125。</p>
+      </div>
+
+      <div class="tech-grid">
+        <!-- Tech Stack -->
+        <div class="tech-card">
+          <div class="tech-card-header">技术栈全景</div>
+          <div class="tech-card-body">
+            <div class="tech-list">
+              <div class="tech-tag"><div class="tech-tag-icon" style="background: var(--lambda-purple);"></div>Terraform (IaC)</div>
+              <div class="tech-tag"><div class="tech-tag-icon" style="background: var(--cf-blue);"></div>CloudFront (CDN)</div>
+              <div class="tech-tag"><div class="tech-tag-icon" style="background: var(--alb-amber);"></div>ALB (负载均衡)</div>
+              <div class="tech-tag"><div class="tech-tag-icon" style="background: var(--ec2-orange);"></div>EC2 (计算)</div>
+              <div class="tech-tag"><div class="tech-tag-icon" style="background: var(--s3-green);"></div>S3 (存储)</div>
+              <div class="tech-tag"><div class="tech-tag-icon" style="background: var(--waf-red);"></div>WAF (防火墙)</div>
+              <div class="tech-tag"><div class="tech-tag-icon" style="background: var(--cognito-teal);"></div>Cognito (认证)</div>
+              <div class="tech-tag"><div class="tech-tag-icon" style="background: var(--aurora-cyan);"></div>Aurora Serverless v2</div>
+              <div class="tech-tag"><div class="tech-tag-icon" style="background: var(--dynamo-purple);"></div>DynamoDB</div>
+              <div class="tech-tag"><div class="tech-tag-icon" style="background: var(--lambda-purple);"></div>Lambda@Edge</div>
+              <div class="tech-tag"><div class="tech-tag-icon" style="background: var(--ec2-orange);"></div>Express.js</div>
+              <div class="tech-tag"><div class="tech-tag-icon" style="background: var(--alb-amber);"></div>EJS (SSR)</div>
+              <div class="tech-tag"><div class="tech-tag-icon" style="background: var(--route53-yellow);"></div>Route 53</div>
+              <div class="tech-tag"><div class="tech-tag-icon" style="background: var(--s3-green);"></div>ACM 证书</div>
+              <div class="tech-tag"><div class="tech-tag-icon" style="background: var(--dynamo-purple);"></div>Step Functions</div>
+              <div class="tech-tag"><div class="tech-tag-icon" style="background: var(--cf-blue);"></div>SNS / SQS</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cost Estimation -->
+        <div class="tech-card">
+          <div class="tech-card-header">月费用估算 (ap-northeast-1)</div>
+          <div class="tech-card-body">
+            <div class="info-table-wrap" style="border: none;">
+              <table class="info-table" style="font-size: 11px;">
+                <thead>
+                  <tr>
+                    <th>服务</th>
+                    <th>配置</th>
+                    <th style="text-align: right;">月费</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Aurora Serverless v2</td>
+                    <td class="mono">0.5~2 ACU</td>
+                    <td style="text-align: right;" class="mono">~$43</td>
+                  </tr>
+                  <tr>
+                    <td>EC2 (t3.medium)</td>
+                    <td class="mono">On-Demand</td>
+                    <td style="text-align: right;" class="mono">~$34</td>
+                  </tr>
+                  <tr>
+                    <td>NAT Gateway</td>
+                    <td class="mono">数据处理费</td>
+                    <td style="text-align: right;" class="mono">~$32</td>
+                  </tr>
+                  <tr>
+                    <td>WAF Web ACL</td>
+                    <td class="mono">6 Rules</td>
+                    <td style="text-align: right;" class="mono">~$11</td>
+                  </tr>
+                  <tr>
+                    <td>CloudFront</td>
+                    <td class="mono">PriceClass_200</td>
+                    <td style="text-align: right;" class="mono">~$1</td>
+                  </tr>
+                  <tr>
+                    <td>S3</td>
+                    <td class="mono">Standard</td>
+                    <td style="text-align: right;" class="mono">&lt;$1</td>
+                  </tr>
+                  <tr>
+                    <td>DynamoDB</td>
+                    <td class="mono">PAY_PER_REQUEST</td>
+                    <td style="text-align: right;" class="mono">&lt;$1</td>
+                  </tr>
+                  <tr>
+                    <td>Cognito</td>
+                    <td class="mono">免费层 50K MAU</td>
+                    <td style="text-align: right;" class="mono">$0</td>
+                  </tr>
+                  <tr style="border-top: 2px solid var(--border);">
+                    <td style="color: var(--aws-orange); font-weight: 700;">Bot Control (可选)</td>
+                    <td class="mono">Targeted</td>
+                    <td style="text-align: right; color: var(--aws-orange);" class="mono">+$10</td>
+                  </tr>
+                  <tr>
+                    <td style="color: var(--aws-orange); font-weight: 700;">Tag Invalidation (可选)</td>
+                    <td class="mono">Lambda@Edge + SF</td>
+                    <td style="text-align: right; color: var(--aws-orange);" class="mono">+$5</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cost Summary Badges -->
+      <div class="cost-summary">
+        <div class="cost-badge">
+          <div class="cost-badge-value">~$108/mo</div>
+          <div class="cost-badge-label">最小配置（核心功能）</div>
+        </div>
+        <div class="cost-badge" style="border-color: var(--aws-orange-dim);">
+          <div class="cost-badge-value">~$125/mo</div>
+          <div class="cost-badge-label">全功能（含 Bot Control + Tags）</div>
+        </div>
+      </div>
+
+      <!-- Feature Flags -->
+      <h3 style="font-size: var(--subheading-size); font-weight: 700; margin: 28px 0 12px;">Terraform Feature Flags</h3>
+      <div class="info-table-wrap">
+        <table class="info-table">
+          <thead>
+            <tr>
+              <th>变量</th>
+              <th>默认值</th>
+              <th>说明</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>enable_cloudfront</code></td>
+              <td class="mono" style="color: var(--s3-green);">true</td>
+              <td>CloudFront Distribution + Behaviors + Functions</td>
+            </tr>
+            <tr>
+              <td><code>enable_waf</code></td>
+              <td class="mono" style="color: var(--s3-green);">true</td>
+              <td>WAF 基础规则 (Common/Bad Inputs/Rate Limit/IP Reputation)</td>
+            </tr>
+            <tr>
+              <td><code>enable_waf_bot_control</code></td>
+              <td class="mono" style="color: var(--waf-red);">false</td>
+              <td>Bot Control Targeted + JS SDK (+$10/mo)</td>
+            </tr>
+            <tr>
+              <td><code>enable_signed_url</code></td>
+              <td class="mono" style="color: var(--s3-green);">true</td>
+              <td>签名 URL/Cookie (Trusted Key Group)</td>
+            </tr>
+            <tr>
+              <td><code>enable_geo_restriction</code></td>
+              <td class="mono" style="color: var(--s3-green);">true</td>
+              <td>地理限制 (黑名单: KP, IR)</td>
+            </tr>
+            <tr>
+              <td><code>enable_cognito</code></td>
+              <td class="mono" style="color: var(--s3-green);">true</td>
+              <td>Cognito User Pool + App Client</td>
+            </tr>
+            <tr>
+              <td><code>enable_aurora</code></td>
+              <td class="mono" style="color: var(--s3-green);">true</td>
+              <td>Aurora Serverless v2 PostgreSQL</td>
+            </tr>
+            <tr>
+              <td><code>enable_continuous_deployment</code></td>
+              <td class="mono" style="color: var(--waf-red);">false</td>
+              <td>Staging Distribution + CD Policy (灰度发布)</td>
+            </tr>
+            <tr>
+              <td><code>enable_tag_invalidation</code></td>
+              <td class="mono" style="color: var(--waf-red);">false</td>
+              <td>Tag-Based Invalidation (Lambda@Edge + DynamoDB + Step Functions)</td>
+            </tr>
+            <tr>
+              <td><code>enable_cloudfront_logging</code></td>
+              <td class="mono" style="color: var(--waf-red);">false</td>
+              <td>CloudFront Standard Logging → S3</td>
+            </tr>
+            <tr>
+              <td><code>enable_response_headers_policy</code></td>
+              <td class="mono" style="color: var(--s3-green);">true</td>
+              <td>Security Response Headers (HSTS/X-Frame/CSP)</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Project Info -->
+      <div style="margin-top: 28px; padding: 20px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg);">
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; text-align: center;">
+          <div>
+            <div style="font-size: var(--small-size); color: var(--text-muted); margin-bottom: 4px;">Account</div>
+            <div style="font-family: var(--font-mono); font-size: var(--body-size); color: var(--text-primary); font-weight: 600;">434465421667</div>
+          </div>
+          <div>
+            <div style="font-size: var(--small-size); color: var(--text-muted); margin-bottom: 4px;">Region</div>
+            <div style="font-family: var(--font-mono); font-size: var(--body-size); color: var(--text-primary); font-weight: 600;">ap-northeast-1</div>
+          </div>
+          <div>
+            <div style="font-size: var(--small-size); color: var(--text-muted); margin-bottom: 4px;">Distribution</div>
+            <div style="font-family: var(--font-mono); font-size: var(--body-size); color: var(--text-primary); font-weight: 600;">EKM1WK5FUL5ZU</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- ===== FOOTER ===== -->
+  <footer class="footer">
+    <div class="footer-links">
+      <a href="https://unice.keithyu.cloud" class="footer-link" target="_blank">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+        unice.keithyu.cloud
+      </a>
+      <a href="https://github.com" class="footer-link" target="_blank">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+        GitHub
+      </a>
+      <a href="/verify.html" class="footer-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        Verification Dashboard
+      </a>
+    </div>
+    <p class="footer-text">
+      CloudFront 全功能演示平台 &mdash; Built by Keith, AWS Solutions Architect<br/>
+      14 项 CloudFront 功能 &middot; 8 Terraform 模块 &middot; 12 篇 Hands-on 实操文档
+    </p>
+  </footer>
+
+  <!-- ===== FAB ===== -->
+  <div class="fab-group">
+    <button class="fab" id="fabTop" title="Back to Top" onclick="window.scrollTo({top:0,behavior:'smooth'})">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+    </button>
+  </div>
+
+  <script>
+    /* ===========================================
+       TOC NAVIGATION
+       =========================================== */
+    const tocNav = document.getElementById('tocNav');
+    const tocLinks = document.querySelectorAll('.toc-link');
+    const sections = document.querySelectorAll('.section, .hero');
+    let lastScrollY = 0;
+
+    // Show/hide sticky nav based on scroll position
+    window.addEventListener('scroll', () => {
+      const scrollY = window.scrollY;
+      if (scrollY > 300) {
+        tocNav.classList.add('visible');
+      } else {
+        tocNav.classList.remove('visible');
+      }
+      lastScrollY = scrollY;
+
+      // Update active link
+      let current = '';
+      sections.forEach(section => {
+        const top = section.offsetTop - 100;
+        if (scrollY >= top) {
+          current = section.id;
+        }
+      });
+
+      tocLinks.forEach(link => {
+        link.classList.remove('active');
+        if (link.dataset.section === current) {
+          link.classList.add('active');
+        }
+      });
+    });
+
+    /* ===========================================
+       SCROLL REVEAL ANIMATION
+       =========================================== */
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.05, rootMargin: '0px 0px -40px 0px' });
+
+    document.querySelectorAll('.section').forEach(el => observer.observe(el));
+  </script>
+</body>
+</html>
