@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>403 - 访问被拒绝 | Unice Demo</title>
+  <style>
+    /* 错误页面内联样式（独立于主站 CSS，确保 S3 直接提供时也能正确渲染） */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans SC', sans-serif;
+      background-color: #f5f7fa;
+      color: #333;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 24px;
+    }
+    .error-container {
+      text-align: center;
+      max-width: 480px;
+    }
+    .error-code {
+      font-size: 6rem;
+      font-weight: 700;
+      color: #ea4335;
+      line-height: 1;
+      margin-bottom: 16px;
+    }
+    .error-title {
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: #1a1a2e;
+    }
+    .error-message {
+      font-size: 1rem;
+      color: #666;
+      line-height: 1.6;
+      margin-bottom: 32px;
+    }
+    .error-hint {
+      font-size: 0.85rem;
+      color: #999;
+      margin-bottom: 24px;
+    }
+    .error-link {
+      display: inline-block;
+      padding: 10px 32px;
+      background-color: #1a73e8;
+      color: #fff;
+      text-decoration: none;
+      border-radius: 4px;
+      font-size: 0.95rem;
+      transition: background-color 0.2s;
+    }
+    .error-link:hover {
+      background-color: #1557b0;
+    }
+    .error-brand {
+      margin-top: 48px;
+      font-size: 0.8rem;
+      color: #bbb;
+    }
+  </style>
+</head>
+<body>
+  <div class="error-container">
+    <div class="error-code">403</div>
+    <h1 class="error-title">访问被拒绝</h1>
+    <p class="error-message">
+      您没有权限访问此页面。这可能是由于签名 URL 已过期、WAF 安全策略拦截或地理位置限制。
+    </p>
+    <p class="error-hint">
+      如果您认为这是一个错误，请稍后重试或联系网站管理员。
+    </p>
+    <a href="/" class="error-link">返回首页</a>
+    <p class="error-brand">Unice Demo &mdash; CloudFront 全功能演示平台</p>
+  </div>
+</body>
+</html>

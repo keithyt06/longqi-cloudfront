@@ -1,0 +1,113 @@
+<section class="section">
+  <h1 class="page-title">调试信息</h1>
+  <p class="page-desc">此页面展示 CloudFront 透传到 Express 的完整 HTTP 请求信息，用于验证 Header 注入、Cookie 转发和链路追踪。</p>
+
+  <!-- ===== Trace ID 高亮显示 ===== -->
+  <div class="debug-highlight">
+    <h2>链路追踪</h2>
+    <div class="debug-trace-box">
+      <span class="debug-label">X-Trace-Id:</span>
+      <code class="debug-value" id="debug-trace-id"><%= typeof traceId !== 'undefined' ? traceId : '(未获取)' %></code>
+    </div>
+    <% if (typeof isNewUser !== 'undefined' && isNewUser) { %>
+      <p class="debug-note">* 首次访问，已生成新 UUID</p>
+    <% } %>
+  </div>
+
+  <!-- ===== Request Headers 表格 ===== -->
+  <div class="debug-section">
+    <h2>Request Headers
+      <span class="debug-count">
+        (<%= typeof headers !== 'undefined' ? Object.keys(headers).length : 0 %> 项)
+      </span>
+    </h2>
+    <table class="debug-table">
+      <thead>
+        <tr>
+          <th class="debug-col-name">Header 名称</th>
+          <th class="debug-col-value">值</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% if (typeof headers !== 'undefined') { %>
+          <% Object.keys(headers).sort().forEach(function(key) { %>
+            <tr class="<%= key.startsWith('cloudfront') || key.startsWith('x-amz') || key === 'x-forwarded-for' || key === 'x-ab-group' ? 'debug-row-highlight' : '' %>">
+              <td class="debug-header-name"><%= key %></td>
+              <td class="debug-header-value"><code><%= headers[key] %></code></td>
+            </tr>
+          <% }); %>
+        <% } %>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ===== Cookies 表格 ===== -->
+  <div class="debug-section">
+    <h2>Cookies
+      <span class="debug-count">
+        (<%= typeof cookies !== 'undefined' ? Object.keys(cookies).length : 0 %> 项)
+      </span>
+    </h2>
+    <% if (typeof cookies !== 'undefined' && Object.keys(cookies).length > 0) { %>
+      <table class="debug-table">
+        <thead>
+          <tr>
+            <th class="debug-col-name">Cookie 名称</th>
+            <th class="debug-col-value">值</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% Object.keys(cookies).sort().forEach(function(key) { %>
+            <tr class="<%= key === 'x-trace-id' || key === 'aws-waf-token' || key === 'x-ab-group' ? 'debug-row-highlight' : '' %>">
+              <td class="debug-header-name"><%= key %></td>
+              <td class="debug-header-value"><code><%= cookies[key] %></code></td>
+            </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    <% } else { %>
+      <p class="empty-state">当前请求未携带任何 Cookie。</p>
+    <% } %>
+  </div>
+
+  <!-- ===== 请求元信息 ===== -->
+  <div class="debug-section">
+    <h2>请求元信息</h2>
+    <table class="debug-table">
+      <tbody>
+        <tr>
+          <td class="debug-header-name">请求方法</td>
+          <td class="debug-header-value"><code><%= typeof method !== 'undefined' ? method : '-' %></code></td>
+        </tr>
+        <tr>
+          <td class="debug-header-name">请求 URL</td>
+          <td class="debug-header-value"><code><%= typeof originalUrl !== 'undefined' ? originalUrl : '-' %></code></td>
+        </tr>
+        <tr>
+          <td class="debug-header-name">协议</td>
+          <td class="debug-header-value"><code><%= typeof protocol !== 'undefined' ? protocol : '-' %></code></td>
+        </tr>
+        <tr>
+          <td class="debug-header-name">主机名</td>
+          <td class="debug-header-value"><code><%= typeof hostname !== 'undefined' ? hostname : '-' %></code></td>
+        </tr>
+        <tr>
+          <td class="debug-header-name">客户端 IP</td>
+          <td class="debug-header-value"><code><%= typeof clientIp !== 'undefined' ? clientIp : '-' %></code></td>
+        </tr>
+        <tr>
+          <td class="debug-header-name">时间戳</td>
+          <td class="debug-header-value"><code><%= new Date().toISOString() %></code></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ===== JSON 原始数据（折叠） ===== -->
+  <div class="debug-section">
+    <details>
+      <summary class="debug-toggle">查看原始 JSON 数据</summary>
+      <pre class="debug-json"><code id="debug-raw-json"><%= typeof headers !== 'undefined' ? JSON.stringify({ headers: headers, cookies: cookies || {}, traceId: traceId || '' }, null, 2) : '{}' %></code></pre>
+    </details>
+  </div>
+</section>

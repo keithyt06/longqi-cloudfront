@@ -1,0 +1,49 @@
+<section class="section">
+  <h1 class="page-title">购物车</h1>
+
+  <!-- 购物车内容（JS 动态渲染） -->
+  <div id="cart-container">
+    <!-- 加载中状态 -->
+    <div id="cart-loading" class="loading-state">
+      <p>加载购物车...</p>
+    </div>
+
+    <!-- 空购物车提示（默认隐藏） -->
+    <div id="cart-empty" class="empty-state" style="display:none;">
+      <h2>购物车是空的</h2>
+      <p>快去<a href="/products">挑选商品</a>吧！</p>
+    </div>
+
+    <!-- 购物车表格（默认隐藏，JS 填充） -->
+    <div id="cart-content" style="display:none;">
+      <table class="cart-table">
+        <thead>
+          <tr>
+            <th class="cart-col-product">商品</th>
+            <th class="cart-col-price">单价</th>
+            <th class="cart-col-quantity">数量</th>
+            <th class="cart-col-subtotal">小计</th>
+            <th class="cart-col-action">操作</th>
+          </tr>
+        </thead>
+        <tbody id="cart-items">
+          <!-- JS 动态插入行 -->
+        </tbody>
+      </table>
+
+      <!-- 总价与下单 -->
+      <div class="cart-summary">
+        <div class="cart-total">
+          <span>总计：</span>
+          <span class="cart-total-price" id="cart-total-price">&yen;0.00</span>
+        </div>
+        <div class="cart-actions">
+          <a href="/products" class="btn btn-secondary">继续购物</a>
+          <button class="btn btn-primary" onclick="placeOrder()" id="btn-place-order">
+            提交订单
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>

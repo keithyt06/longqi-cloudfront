@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= typeof title !== 'undefined' ? title + ' - ' : '' %>Unice Demo</title>
+
+  <!-- WAF JS SDK: Bot Control 浏览器指纹采集，生成 aws-waf-token cookie -->
+  <script type="text/javascript" src="/challenge.js" defer></script>
+
+  <!-- 全局样式 -->
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+  <!-- ===== 导航栏 ===== -->
+  <nav class="navbar">
+    <div class="nav-container">
+      <!-- 品牌 Logo -->
+      <a href="/" class="nav-brand">Unice Demo</a>
+
+      <!-- 导航链接 -->
+      <ul class="nav-links">
+        <li><a href="/" class="nav-link<%= typeof currentPage !== 'undefined' && currentPage === 'home' ? ' active' : '' %>">Home</a></li>
+        <li><a href="/products" class="nav-link<%= typeof currentPage !== 'undefined' && currentPage === 'products' ? ' active' : '' %>">Products</a></li>
+        <li>
+          <a href="/cart" class="nav-link<%= typeof currentPage !== 'undefined' && currentPage === 'cart' ? ' active' : '' %>">
+            Cart
+            <!-- 购物车数量徽章（JS 动态更新） -->
+            <span id="cart-badge" class="badge" style="display:none;">0</span>
+          </a>
+        </li>
+        <li>
+          <a href="/login" class="nav-link<%= typeof currentPage !== 'undefined' && currentPage === 'login' ? ' active' : '' %>" id="nav-login-link">
+            Login
+          </a>
+        </li>
+        <li><a href="/debug" class="nav-link<%= typeof currentPage !== 'undefined' && currentPage === 'debug' ? ' active' : '' %>">Debug</a></li>
+      </ul>
+
+      <!-- 移动端菜单按钮 -->
+      <button class="nav-toggle" id="nav-toggle" aria-label="切换导航菜单">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- ===== 主内容区 ===== -->
+  <main class="main-content">
+    <%- body %>
+  </main>
+
+  <!-- ===== Footer ===== -->
+  <footer class="footer">
+    <div class="footer-container">
+      <p>&copy; 2026 Unice Demo — CloudFront 全功能演示平台</p>
+      <p class="footer-sub">
+        由 AWS SA Keith 构建 |
+        <a href="/debug">调试信息</a> |
+        <a href="/api/health" target="_blank">健康检查</a>
+      </p>
+      <!-- Trace ID 显示（JS 动态填充） -->
+      <p class="footer-trace" id="footer-trace-id"></p>
+    </div>
+  </footer>
+
+  <!-- 全局前端 JS -->
+  <script src="/static/js/main.js"></script>
+</body>
+</html>

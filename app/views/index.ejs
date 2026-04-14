@@ -1,0 +1,270 @@
+<!-- ===== Hero Banner ===== -->
+<section class="hero">
+  <div class="hero-content">
+    <h1>CloudFront 全功能演示平台</h1>
+    <p>基于 Amazon CloudFront 构建的电商模拟网站，覆盖多源路由、缓存策略、WAF Bot Control、VPC Origin、签名 URL 等核心功能。</p>
+    <a href="/products" class="btn btn-primary">浏览商品</a>
+  </div>
+</section>
+
+<!-- ===== 推荐商品网格 ===== -->
+<section class="section">
+  <h2 class="section-title">推荐商品</h2>
+  <div class="product-grid" id="featured-products">
+    <!-- JS 动态加载，或服务端渲染 -->
+    <% if (typeof products !== 'undefined' && products.length > 0) { %>
+      <% products.forEach(function(product) { %>
+        <div class="product-card">
+          <a href="/products/<%= product.id %>">
+            <div class="product-image">
+              <img src="<%= product.image_url || '/static/images/placeholder.png' %>"
+                   alt="<%= product.name %>"
+                   loading="lazy">
+            </div>
+            <div class="product-info">
+              <h3 class="product-name"><%= product.name %></h3>
+              <p class="product-category"><%= product.category %></p>
+              <p class="product-price">&yen;<%= product.price %></p>
+            </div>
+          </a>
+        </div>
+      <% }); %>
+    <% } else { %>
+      <!-- 无数据时的占位提示 -->
+      <p class="empty-state">暂无推荐商品，请稍后再试。</p>
+    <% } %>
+  </div>
+</section>
+
+<!-- ===== 功能特性概览 — 12 项全覆盖 ===== -->
+<section class="section section-alt">
+  <h2 class="section-title">CloudFront 全栈功能演示 &mdash; 12 项逐一验证</h2>
+  <p class="section-subtitle">本平台覆盖 Amazon CloudFront 从基础加速到高级安全的全部核心功能，每项均提供实时验证入口和 AWS 官方文档参考</p>
+  <div class="feature-grid-v2">
+
+    <!-- 01 多源路由 -->
+    <div class="feature-card-v2">
+      <div class="feature-icon">&#x1F310;</div>
+      <h3>多源路由 <span class="feature-badge">核心架构</span></h3>
+      <p class="feature-desc">S3 (OAC) + Internal ALB (VPC Origin) 双源架构。10 条 Cache Behavior 按 URL 路径精确路由：<code>/static/*</code> <code>/images/*</code> 走 S3 长缓存，<code>/api/*</code> 走 ALB，<code>/premium/*</code> 走 S3 + 签名保护。</p>
+      <div class="feature-metrics">
+        <span>10 Behaviors</span>
+        <span>2 Origins</span>
+        <span>4 Cache Policies</span>
+      </div>
+      <div class="feature-links">
+        <a href="/api/debug" class="feature-link">Debug Headers</a>
+        <a href="https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/distribution-web-values-specify.html" target="_blank" class="feature-link-ext">AWS 文档</a>
+      </div>
+    </div>
+
+    <!-- 02 S3 OAC -->
+    <div class="feature-card-v2">
+      <div class="feature-icon">&#x1F6E1;</div>
+      <h3>S3 OAC 保护 <span class="feature-badge">替代 OAI</span></h3>
+      <p class="feature-desc">Origin Access Control (OAC) 使用 SigV4 签名确保 S3 桶仅可通过指定 CloudFront Distribution 访问。支持 SSE-KMS 加密和 PUT/POST 操作。直接访问 S3 URL 返回 403 Forbidden。</p>
+      <div class="feature-metrics">
+        <span>SigV4 签名</span>
+        <span>按 Distribution ARN 授权</span>
+        <span>SSE-KMS 支持</span>
+      </div>
+      <div class="feature-links">
+        <a href="/static/css/style.css" class="feature-link">S3 资源 (200)</a>
+        <a href="https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-restricting-access-to-s3.html" target="_blank" class="feature-link-ext">AWS 文档</a>
+      </div>
+    </div>
+
+    <!-- 03 缓存策略 -->
+    <div class="feature-card-v2">
+      <div class="feature-icon">&#x1F4BE;</div>
+      <h3>缓存策略 <span class="feature-badge">Cache Key</span></h3>
+      <p class="feature-desc">4 种缓存策略精准控制：ProductCache (3600s，按 Query String 区分 page/category/sort)、PageCache (60s，仅 trace+waf cookie 入 Cache Key)、CachingOptimized (24h 静态)、CachingDisabled (个性化 API)。</p>
+      <div class="feature-metrics">
+        <span>ProductCache 3600s</span>
+        <span>PageCache 60s</span>
+        <span>Brotli + Gzip</span>
+      </div>
+      <div class="feature-links">
+        <a href="/api/products?page=1" class="feature-link">Hit/Miss 测试</a>
+        <a href="https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/controlling-the-cache-key.html" target="_blank" class="feature-link-ext">AWS 文档</a>
+      </div>
+    </div>
+
+    <!-- 04 VPC Origin -->
+    <div class="feature-card-v2">
+      <div class="feature-icon">&#x1F512;</div>
+      <h3>VPC Origin <span class="feature-badge feature-badge-new">2024 新功能</span></h3>
+      <p class="feature-desc">CloudFront 通过 VPC 内 ENI 直连 Internal ALB，源站零公网暴露。安全组链式信任：VPC Origin SG &rarr; ALB SG (port 80) &rarr; EC2 SG (port 3000) &rarr; Aurora SG (port 5432)，每层仅允许上层流量。</p>
+      <div class="feature-metrics">
+        <span>零公网 IP</span>
+        <span>4 层 SG 链</span>
+        <span>AWS 骨干网传输</span>
+      </div>
+      <div class="feature-links">
+        <a href="/api/debug" class="feature-link">查看 X-Forwarded-For</a>
+        <a href="https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-vpc-origin.html" target="_blank" class="feature-link-ext">AWS 文档</a>
+      </div>
+    </div>
+
+    <!-- 05 WAF 基础防护 -->
+    <div class="feature-card-v2">
+      <div class="feature-icon">&#x1F6AB;</div>
+      <h3>WAF 基础防护 <span class="feature-badge">OWASP Top 10</span></h3>
+      <p class="feature-desc">6 条 WAF 规则层层防护：Common Rule Set (SQLi/XSS/SSRF)、Known Bad Inputs (Log4j CVE-2021-44228)、IP Reputation (僵尸网络/Tor)、Rate Limit (2000 次/5 分钟/IP)、Geo Block (KP/IR)。</p>
+      <div class="feature-metrics">
+        <span>6 Rules</span>
+        <span>Log4j 拦截 (403)</span>
+        <span>2000 req/5min</span>
+      </div>
+      <div class="feature-links">
+        <a href="/api/health" class="feature-link">正常请求 (200)</a>
+        <a href="https://docs.aws.amazon.com/waf/latest/developerguide/aws-managed-rule-groups-list.html" target="_blank" class="feature-link-ext">AWS 文档</a>
+      </div>
+    </div>
+
+    <!-- 06 WAF Bot Control -->
+    <div class="feature-card-v2">
+      <div class="feature-icon">&#x1F916;</div>
+      <h3>WAF Bot Control <span class="feature-badge feature-badge-warn">Targeted + ML</span></h3>
+      <p class="feature-desc">Bot Control Targeted 级别：行为分析 + ML 模型检测高级爬虫。JS SDK 在浏览器端采集 Canvas/WebGL/JS 引擎指纹，生成 <code>aws-waf-token</code> cookie。无 token 的 curl/脚本被 Challenge 或 Block。</p>
+      <div class="feature-metrics">
+        <span>JS SDK 指纹</span>
+        <span>ML 行为分析</span>
+        <span>$10/月 + $1/百万</span>
+      </div>
+      <div class="feature-links">
+        <a href="/api/debug" class="feature-link">查看 aws-waf-token</a>
+        <a href="https://docs.aws.amazon.com/waf/latest/developerguide/waf-bot-control.html" target="_blank" class="feature-link-ext">AWS 文档</a>
+      </div>
+    </div>
+
+    <!-- 07 CloudFront Functions -->
+    <div class="feature-card-v2">
+      <div class="feature-icon">&#x26A1;</div>
+      <h3>CloudFront Functions <span class="feature-badge">边缘计算</span></h3>
+      <p class="feature-desc">3 个 Functions 运行在全球 600+ PoP 节点，延迟 &lt; 1ms：URL 重写（友好 URL &rarr; API 路由）、A/B 测试分流（<code>x-ab-group</code> cookie 50/50 分组）、地理重定向（CN 用户 302 到 <code>/cn/</code>）。</p>
+      <div class="feature-metrics">
+        <span>&lt; 1ms 延迟</span>
+        <span>$0.10/百万次</span>
+        <span>cloudfront-js-2.0</span>
+      </div>
+      <div class="feature-links">
+        <a href="/api/debug" class="feature-link">查看注入 Headers</a>
+        <a href="https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/cloudfront-functions.html" target="_blank" class="feature-link-ext">AWS 文档</a>
+      </div>
+    </div>
+
+    <!-- 08 签名 URL -->
+    <div class="feature-card-v2">
+      <div class="feature-icon">&#x1F511;</div>
+      <h3>签名 URL <span class="feature-badge">RSA 2048</span></h3>
+      <p class="feature-desc">RSA 非对称加密保护 <code>/premium/*</code> 会员内容。EC2 用私钥签发含过期时间的签名 URL，CloudFront 用 Trusted Key Group 中的公钥验证。未签名 &rarr; 403，过期 &rarr; 403，篡改 &rarr; 403。</p>
+      <div class="feature-metrics">
+        <span>1 小时有效期</span>
+        <span>Trusted Key Group</span>
+        <span>密钥可轮换</span>
+      </div>
+      <div class="feature-links">
+        <a href="/premium/sample.html" class="feature-link">无签名 (403)</a>
+        <a href="https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-signed-urls.html" target="_blank" class="feature-link-ext">AWS 文档</a>
+      </div>
+    </div>
+
+    <!-- 09 自定义错误页面 -->
+    <div class="feature-card-v2">
+      <div class="feature-icon">&#x1F4C4;</div>
+      <h3>自定义错误页面 <span class="feature-badge">品牌化</span></h3>
+      <p class="feature-desc">4 种错误码映射到 S3 上的品牌化 HTML 页面：403 (访问被拒绝)、404 (页面未找到)、500 (服务器错误)、502 (网关错误)。4xx 缓存 300s，5xx 缓存 60s（暂时性错误快速恢复）。</p>
+      <div class="feature-metrics">
+        <span>403/404/500/502</span>
+        <span>S3 托管</span>
+        <span>内联 CSS</span>
+      </div>
+      <div class="feature-links">
+        <a href="/this-page-does-not-exist" class="feature-link">测试 404 页面</a>
+        <a href="https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/GeneratingCustomErrorResponses.html" target="_blank" class="feature-link-ext">AWS 文档</a>
+      </div>
+    </div>
+
+    <!-- 10 UUID 链路追踪 -->
+    <div class="feature-card-v2">
+      <div class="feature-icon">&#x1F50D;</div>
+      <h3>UUID 链路追踪 <span class="feature-badge">跨设备</span></h3>
+      <p class="feature-desc">服务端 UUID 中间件为每个用户分配 <code>x-trace-id</code> HttpOnly Cookie（2 年有效）。登录后通过 DynamoDB 将 UUID 绑定 Cognito 账号，实现跨设备统一追踪。广告拦截器无法屏蔽。</p>
+      <div class="feature-metrics">
+        <span>HttpOnly + Secure</span>
+        <span>DynamoDB 绑定</span>
+        <span>2 年有效期</span>
+      </div>
+      <div class="feature-links">
+        <a href="/debug" class="feature-link">查看 Trace ID</a>
+        <a href="/api/health" class="feature-link">X-Trace-Id Header</a>
+      </div>
+    </div>
+
+    <!-- 11 灰度发布 -->
+    <div class="feature-card-v2">
+      <div class="feature-icon">&#x1F504;</div>
+      <h3>灰度发布 <span class="feature-badge">Continuous Deployment</span></h3>
+      <p class="feature-desc">Staging Distribution 镜像生产配置，通过 Continuous Deployment Policy 分流真实流量验证。SingleWeight (5% 随机) 或 SingleHeader (<code>aws-cf-cd-staging: true</code>) 两种模式。验证通过一键 Promote，失败即时回滚。</p>
+      <div class="feature-metrics">
+        <span>5% 流量灰度</span>
+        <span>Session 粘性</span>
+        <span>即时回滚</span>
+      </div>
+      <div class="feature-links">
+        <a href="/api/health" class="feature-link">Production 版本</a>
+        <a href="https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/continuous-deployment.html" target="_blank" class="feature-link-ext">AWS 文档</a>
+      </div>
+    </div>
+
+    <!-- 12 Tag-Based Invalidation -->
+    <div class="feature-card-v2">
+      <div class="feature-icon">&#x1F3F7;</div>
+      <h3>标签缓存失效 <span class="feature-badge feature-badge-new">Tag-Based</span></h3>
+      <p class="feature-desc">Lambda@Edge (Origin Response) 提取 <code>Cache-Tag</code> header，将 tag&rarr;URL 映射写入 DynamoDB。管理员调用 <code>POST /api/admin/invalidate-tag</code> 指定标签（如 <code>product-1</code>），系统自动查找所有关联 URL 并批量失效。</p>
+      <div class="feature-metrics">
+        <span>Lambda@Edge</span>
+        <span>DynamoDB 映射</span>
+        <span>3000 路径/批</span>
+      </div>
+      <div class="feature-links">
+        <a href="/api/products/1" class="feature-link">查看 Cache-Tag</a>
+        <a href="https://aws.amazon.com/blogs/networking-and-content-delivery/tag-based-invalidation-in-amazon-cloudfront/" target="_blank" class="feature-link-ext">AWS Blog</a>
+      </div>
+    </div>
+
+    <!-- 13 地理限制 -->
+    <div class="feature-card-v2">
+      <div class="feature-icon">&#x1F30D;</div>
+      <h3>地理限制 <span class="feature-badge">Geo Restriction</span></h3>
+      <p class="feature-desc">两种实现方式：CloudFront 原生 Geo Restriction (白名单/黑名单) 和 WAF Geo Block 规则 (可按路径精细控制 + 自定义响应体)。当前黑名单封禁 KP/IR。通过 <code>CloudFront-Viewer-Country</code> header 识别。</p>
+      <div class="feature-metrics">
+        <span>MaxMind GeoIP</span>
+        <span>黑名单: KP, IR</span>
+        <span>99.8% 准确率</span>
+      </div>
+      <div class="feature-links">
+        <a href="/api/debug" class="feature-link">查看 Viewer-Country</a>
+        <a href="https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/georestrictions.html" target="_blank" class="feature-link-ext">AWS 文档</a>
+      </div>
+    </div>
+
+    <!-- 14 SSR + Cognito -->
+    <div class="feature-card-v2">
+      <div class="feature-icon">&#x1F4BB;</div>
+      <h3>SSR 渲染 + Cognito 认证 <span class="feature-badge">全栈</span></h3>
+      <p class="feature-desc">Express EJS 服务端渲染 6 个页面（首页/商品/详情/购物车/登录/调试）。Cognito User Pool 提供注册/登录/JWT 签发，Express 中间件验证 <code>Bearer</code> token。注册后自动确认，无需邮箱验证。</p>
+      <div class="feature-metrics">
+        <span>6 SSR Pages</span>
+        <span>JWT 认证</span>
+        <span>免费 50K MAU</span>
+      </div>
+      <div class="feature-links">
+        <a href="/login" class="feature-link">注册/登录</a>
+        <a href="https://docs.aws.amazon.com/cognito/latest/developerguide/what-is-amazon-cognito.html" target="_blank" class="feature-link-ext">Cognito 文档</a>
+      </div>
+    </div>
+
+  </div>
+</section>

